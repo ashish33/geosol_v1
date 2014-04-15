@@ -4,9 +4,12 @@ Created on Apr 14, 2014
 @author: minjoon
 '''
 from abc import ABCMeta, abstractmethod
+
 import cv2
+
+from image.ocr import LabelRecognizer
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 class VisualPrimitive:
     __metaclass__ = ABCMeta
@@ -14,13 +17,34 @@ class VisualPrimitive:
     def __repr__(self):
         pass
     
+    @abstractmethod
+    def assign_abs(self, offset):
+        pass
+    
+    @abstractmethod
+    def add_label(self, label):
+        pass
+    
 class VPLine(VisualPrimitive):
     def __init__(self, line_tuple):
         self.line_tuple = line_tuple
         self.label_list = [] # first two elements are starting points
+        self.abs_line_tuple = list(line_tuple[:])
+        
+    def assign_abs(self, offset):
+        self.abs_line_tuple[0] += offset[0]
+        self.abs_line_tuple[1] += offset[1]
+        self.abs_line_tuple[2] += offset[0]
+        self.abs_line_tuple[3] += offset[1]
+        
+    def add_label(self, label):
+        self.label_list.append(label)
+        
         
     def __repr__(self):
-        return 'l,%.1f,%.1f,%.1f,%.1f' %self.line_tuple
+        out = 'l,%.1f,%.1f,%.1f,%.1f,' %tuple(self.line_tuple)
+        out += ','.join(self.label_list)
+        return out
 
 class VPArc(VisualPrimitive):
     '''
@@ -29,9 +53,19 @@ class VPArc(VisualPrimitive):
     def __init__(self, arc_tuple):
         self.arc_tuple = arc_tuple
         self.label_list = [] # first element is the center
+        self.abs_arc_tuple = list(arc_tuple[:])
+        
+    def assign_abs(self, offset):
+        self.abs_arc_tuple[0] += offset[0]
+        self.abs_arc_tuple[1] += offset[1]
+        
+    def add_label(self, label):
+        self.label_list.append(label)
         
     def __repr__(self):
-        return 'a,%.1f,%.1f,%.1f,%.1f,%.1f' %self.arc_tuple
+        out = 'a,%.1f,%.1f,%.1f,%.1f,%.1f,' %tuple(self.arc_tuple)
+        out += ','.join(self.label_list)
+        return out
     
 '''
 Given an image,
@@ -49,13 +83,14 @@ variables: params2 (th), minDist (for nms)
 
 '''
 class VPGenerator:
-    def __init__ (self, segment, line_params=None, circle_params=None, eps=1.5):
+    def __init__ (self, bin_seg, line_params=None, circle_params=None, eps=1.5, label_tol=15):
+        segment = bin_seg.dgm_seg
         nz_pts = segment.nz_pts
 
         if line_params == None:
             line_params = (1,np.pi/180,3,20,30,2,np.pi/60)
         if circle_params == None:
-            circle_params = (1,0,0,3,20,30,35,2)
+            circle_params = (1,20,100,2,20,50,40,2)
         rho, theta, line_mg, line_ml, th, nms_rho, nms_theta = line_params
         dp, minRadius, maxRadius, arc_mg, arc_ml, param1, param2, minDist = circle_params
         method = cv2.cv.CV_HOUGH_GRADIENT
@@ -72,12 +107,20 @@ class VPGenerator:
             for line_tuple in line_tuple_list:
                 self.vpline_list.append(VPLine(line_tuple))
 
-        ''' 
         for x,y,r in circle_list:
             arc_tuple_list = circle2arcs(nz_pts,x,y,r,arc_mg,arc_ml,eps)
             for arc_tuple in arc_tuple_list:
                 self.vparc_list.append(VPArc(arc_tuple))
-        '''
+                
+        # Assign abs tuple for each visual element
+        for vp in self.get_vp_list():
+            vp.assign_abs(segment.loc)
+            
+        # Assign labels to each segment
+        for vp in self.vpline_list:
+            for x,y in [vp.abs_line_tuple[:2],vp.abs_line_tuple[2:]]:
+                dist_list = [distance(x,y,seg.center[0],seg.center[1]) for seg in bin_seg.label_seg_list]
+                vp.add_label(bin_seg.label_seg_list[np.argmin(dist_list)].label)
                 
     def get_vp_list(self):
         temp_list = self.vpline_list[:]
@@ -86,7 +129,10 @@ class VPGenerator:
    
     # visual primitives with translation based onthe location of the segment 
     def get_abs_vp_list(self):
-        pass
+        pass    
+
+def distance(x0, y0, x1, y1):
+    return np.sqrt((x1-x0)**2+(y1-y0)**2)
 
 # non-maximal suppression for rho-theta list
 def rt_nms(rt_list, nms_rho, nms_theta):
@@ -135,9 +181,8 @@ def rt2lines(nz_pts, r, t,line_mg, line_ml, eps=1.5):
             end_idx = idx
     return lines
 
-
-def circle2arcs(img, x, y, r, arc_mg, arc_ml, eps=1.5):
-    return []
+def circle2arcs(nz_pts, x, y, r, arc_mg, arc_ml, eps=1.5):
+    return [(x,y,r,0,0)]
                 
             
         

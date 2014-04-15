@@ -12,8 +12,6 @@ from image.low_level import open_img, BinarizedSegmentation
 from image.ocr import LabelSaver, LabelRecognizer
 from image.visual_primitive import VPGenerator
 import matplotlib.pyplot as plt
-import numpy as np
-
 
 def train():
     fig = plt.figure()
@@ -32,35 +30,28 @@ def train():
 def test():
     img = open_img(sys.argv[1])
     bin_seg = BinarizedSegmentation(img)
-    label_recog = LabelRecognizer()
-    for segment in bin_seg.label_seg_list:
-        print label_recog.recognize(segment.img)
-        
-    ret, thresh = cv2.threshold(bin_seg.dgm_seg.img, 0, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
-    minLineLength = 100
-    maxLineGap = 10
-    lines = cv2.HoughLinesP(thresh,1,np.pi/180,10,minLineLength,maxLineGap)
-    print len(lines[0])
-    for x1,y1,x2,y2 in lines[0]:
-        plt.imshow(thresh, cmap=cm.Greys_r)
-        plt.plot([x1,x2],[y1,y2],'r')
-        plt.show()
-        
-def test2():
-    img = open_img(sys.argv[1])
-    bin_seg = BinarizedSegmentation(img)
+    rc = LabelRecognizer()
+    for seg in bin_seg.label_seg_list:
+        seg.assign_label(rc.recognize(seg.img))
+
     # line_params:  (rho, theta, line_mg, line_ml, th, nms_rho, nms_theta)
     # circle_params: (dp, minRadius, maxRadius, arc_mg, arc_ml, params1, params2, minDist)
     #line_params = (1,np.pi/180,3,20,30,2,2)
     # circle_params = (1,20,200,3,20,50,50,2)
-    vpg = VPGenerator(bin_seg.dgm_seg,eps=1.5)
-    vp_list = vpg.get_vp_list()
-    print len(vp_list)
-    for vp in vp_list:
-        plt.plot(([vp.line_tuple[0],vp.line_tuple[2]]),[vp.line_tuple[1],vp.line_tuple[3]])
-    plt.show()
-
+    vpg = VPGenerator(bin_seg,eps=1.5)
+    print vpg.vpline_list
+    out_img = cv2.cvtColor(img,cv2.cv.CV_GRAY2BGR)
     
+    for vp in vpg.vpline_list:
+        x0,y0,x1,y1 = vp.abs_line_tuple
+        cv2.line(out_img,(x0,y0),(x1,y1),(255,0,0),1)
+    for vp in vpg.vparc_list:
+        x,y,r,t0,t1 = vp.abs_arc_tuple
+        cv2.circle(out_img,(int(x),int(y)),int(r),(0,255,0),1)
+    
+    cv2.imshow('detected circles', out_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
      
 if __name__ == '__main__':
-    test2()
+    test()
