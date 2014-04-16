@@ -39,6 +39,8 @@ def train():
 def save_solution():
     imgpath = sys.argv[1]
     folderpath = os.path.dirname(imgpath)
+    truepath = os.path.join(folderpath, 'gt_vp_sln.csv')
+    true_vpg = VPGenerator(filepath=truepath)
     img = open_img(imgpath)
     bin_seg = BinarizedSegmentation(img)
     rc = LabelRecognizer()
@@ -48,31 +50,45 @@ def save_solution():
     
     # line_params:  (rho, theta, line_mg, line_ml, th, nms_rho, nms_theta)
     # circle_params: (dp, minRadius, maxRadius, arc_mg, arc_ml, params1, params2, minDist)
-    itr = 1
-    digit = 6
-    num = 10000
-#    for itr in range(num):
-    line_params = (1,np.pi/180,3,20,30,2,np.pi/60)
-    circle_params = (1,20,100,2,20,50,40,2)
+    # th 30-100 increment of 1, nms_rho 1-10, nms_theta 3-10 np.pi/180
+    # params2 50-100, minDist 2-10
     naivepath = os.path.join(folderpath,'naive')
     infopath = os.path.join(naivepath, 'info.csv')
     info_fh = open(infopath, 'a')
-    
-    name = ('{0:0%d}' %digit).format(itr) + '.csv'
-    while name in os.listdir(naivepath):
-        itr += 1
+    itr = 1
+    digit = 6
+    num = 100
+    for itr in range(num):
+        th = np.random.random_integers(30,100)
+        nms_rho = np.random.random_integers(2,10)
+        nms_theta = np.random.random_integers(3*np.pi/180,10*np.pi/180)
+        param2 = np.random.random_integers(40,100)
+        minDist = np.random.random_integers(2,10)
+        line_params = (1,np.pi/180,3,20,th,nms_rho,nms_theta)
+        circle_params = (0.5,20,150,2,20,50,param2,minDist)
+        
         name = ('{0:0%d}' %digit).format(itr) + '.csv'
-    slnpath = os.path.join(naivepath,name)
-    #vpg = VPGenerator(bin_seg,eps=1.5)
-    vpg = VPGenerator(bin_seg, line_params=line_params, circle_params=circle_params)
-    info = "%s,%s,%s\n" %(name,str(line_params),str(circle_params))
-    info_fh.write(info)
-    out_img = display_vp(img, vpg)
-    
-    cv2.imshow('detected circles', out_img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    vpg.save(slnpath)
+        while name in os.listdir(naivepath):
+            itr += 1
+            name = ('{0:0%d}' %digit).format(itr) + '.csv'
+        slnpath = os.path.join(naivepath,name)
+        #vpg = VPGenerator(bin_seg,eps=1.5)
+        vpg = VPGenerator(bin_seg, line_params=line_params, circle_params=circle_params)
+        vpg.save(slnpath)
+        info = "%s,%s,%s\n" %(name,str(line_params),str(circle_params))
+        info_fh.write(info)    
+        all, tp, fp = evaluate_solution(vpg, true_vpg)
+        recall = 0
+        if all > 0:
+            recall = float(tp)/all
+        precision = 0
+        if tp+fp > 0:
+            precision = float(tp)/(tp+fp)
+        print recall, precision
+        out_img = display_vp(img, vpg)
+        cv2.imshow('solution', out_img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
     info_fh.close()
     
 def evaluate():

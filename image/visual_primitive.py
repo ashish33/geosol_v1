@@ -42,8 +42,6 @@ class VisualPrimitive:
 class VPLine(VisualPrimitive):
     def __init__(self, line_tuple):
         self.line_tuple = line_tuple
-        self.pt0 = line_tuple[:2]
-        self.pt1 = line_tuple[2:]
         self.label_list = [] # first two elements are starting points
         self.abs_line_tuple = list(line_tuple[:])
         pass
@@ -66,7 +64,9 @@ class VPLine(VisualPrimitive):
     def similarity(self, other):
         if type(self) != type(other):
             return False
-        return sim_line((self.pt0,self.pt1),(other.pt0,other.pt1))
+        a = self.abs_line_tuple
+        b = other.abs_line_tuple
+        return sim_line((a[:2],a[2:]),(b[:2],b[2:]))
         
     def __repr__(self):
         out = 'l,%.1f,%.1f,%.1f,%.1f,' %tuple(self.abs_line_tuple)
@@ -79,8 +79,6 @@ class VPArc(VisualPrimitive):
     '''
     def __init__(self, arc_tuple):
         self.arc_tuple = arc_tuple
-        self.center = arc_tuple[:2]
-        self.radius = arc_tuple[2]
         self.label_list = [] # first element is the center
         self.abs_arc_tuple = list(arc_tuple[:])
         
@@ -98,7 +96,9 @@ class VPArc(VisualPrimitive):
     def similarity(self, other):
         if type(self) != type(other):
             return 0
-        return sim_circle(self.center,self.radius,other.center,other.radius)
+        a = self.abs_arc_tuple
+        b = other.abs_arc_tuple
+        return sim_circle(a[:2],a[2],b[:2],b[2])
         
     def __repr__(self):
         out = 'a,%.1f,%.1f,%.1f,%.1f,%.1f,' %tuple(self.abs_arc_tuple)
@@ -155,7 +155,10 @@ class VPGenerator:
             dp, minRadius, maxRadius, arc_mg, arc_ml, param1, param2, minDist = circle_params
             method = cv2.cv.CV_HOUGH_GRADIENT
             rt_list = cv2.HoughLines(segment.bin_img,rho,theta,th)[0]
-            circle_list = cv2.HoughCircles(segment.img,method,dp,minDist,param1=param1,param2=param2,minRadius=minRadius,maxRadius=maxRadius)[0]
+            temp = cv2.HoughCircles(segment.img,method,dp,minDist,param1=param1,param2=param2,minRadius=minRadius,maxRadius=maxRadius)
+            circle_list = []
+            if temp != None:
+                circle_list = temp[0]
             
             # non-maximal suppression
             nms_rt_list = rt_nms(rt_list, nms_rho, nms_theta)
@@ -197,10 +200,10 @@ def display_vp(img, vpg):
     out_img = cv2.cvtColor(img,cv2.cv.CV_GRAY2BGR)
     
     for vp in vpg.vpline_list:
-        x0,y0,x1,y1 = [int(round(float(elem))) for elem in vp.abs_line_tuple]
+        x0,y0,x1,y1 = [int(np.around(float(elem))) for elem in vp.abs_line_tuple]
         cv2.line(out_img,(x0,y0),(x1,y1),(255,0,0),1)
     for vp in vpg.vparc_list:
-        x,y,r,t0,t1 = [int(round(float(elem))) for elem in vp.abs_arc_tuple]
+        x,y,r,t0,t1 = [int(np.around(float(elem))) for elem in vp.abs_arc_tuple]
         cv2.circle(out_img,(int(x),int(y)),int(r),(0,255,0),1)
     return out_img
 
@@ -267,7 +270,8 @@ def evaluate_solution(test_vpg, true_vpg, tolerance=0.7):
     true_vp_list = true_vpg.get_vp_list()
     test_vp_list = test_vpg.get_vp_list()
     for true_vp in true_vp_list:
-        match_num = len([test_vp for test_vp in test_vp_list if true_vp.similarity(test_vp) > tolerance])
+        sims = [true_vp.similarity(test_vp) for test_vp in test_vp_list]
+        match_num = np.count_nonzero(np.array(sims) > tolerance)
         if match_num > 0:
             true_positive += 1
             false_positive += match_num - 1
