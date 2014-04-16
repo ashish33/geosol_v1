@@ -11,7 +11,6 @@ import cv2
 
 from geometry.util import sim_line, sim_circle
 from image.low_level import open_img
-from image.ocr import LabelRecognizer
 import matplotlib.pyplot as plt
 import numpy as np
 import csv
@@ -65,6 +64,8 @@ class VPLine(VisualPrimitive):
         self.label_list.append(label)
         
     def similarity(self, other):
+        if type(self) != type(other):
+            return False
         return sim_line((self.pt0,self.pt1),(other.pt0,other.pt1))
         
     def __repr__(self):
@@ -95,7 +96,9 @@ class VPArc(VisualPrimitive):
         self.label_list.append(label)
         
     def similarity(self, other):
-        sim_circle(self.center,self.radius,other.center,other.radius)
+        if type(self) != type(other):
+            return 0
+        return sim_circle(self.center,self.radius,other.center,other.radius)
         
     def __repr__(self):
         out = 'a,%.1f,%.1f,%.1f,%.1f,%.1f,' %tuple(self.abs_arc_tuple)
@@ -190,7 +193,16 @@ class VPGenerator:
         fh.close()
         print 'Successfully saved visual primitives to %s' %filepath
         
-   
+def display_vp(img, vpg):
+    out_img = cv2.cvtColor(img,cv2.cv.CV_GRAY2BGR)
+    
+    for vp in vpg.vpline_list:
+        x0,y0,x1,y1 = [int(round(float(elem))) for elem in vp.abs_line_tuple]
+        cv2.line(out_img,(x0,y0),(x1,y1),(255,0,0),1)
+    for vp in vpg.vparc_list:
+        x,y,r,t0,t1 = [int(round(float(elem))) for elem in vp.abs_arc_tuple]
+        cv2.circle(out_img,(int(x),int(y)),int(r),(0,255,0),1)
+    return out_img
 
 def distance(x0, y0, x1, y1):
     return np.sqrt((x1-x0)**2+(y1-y0)**2)
@@ -245,8 +257,21 @@ def rt2lines(nz_pts, r, t,line_mg, line_ml, eps=1.5):
 def circle2arcs(nz_pts, x, y, r, arc_mg, arc_ml, eps=1.5):
     return [(x,y,r,0,0)]
 
-def compare_solution():
-    pass
+'''
+precision: true_positive/(true_positive+false_positive)
+recall: true_positive/len(true_vp_list)
+'''
+def evaluate_solution(test_vpg, true_vpg, tolerance=0.7):
+    false_positive = 0
+    true_positive = 0
+    true_vp_list = true_vpg.get_vp_list()
+    test_vp_list = test_vpg.get_vp_list()
+    for true_vp in true_vp_list:
+        match_num = len([test_vp for test_vp in test_vp_list if true_vp.similarity(test_vp) > tolerance])
+        if match_num > 0:
+            true_positive += 1
+            false_positive += match_num - 1
+    return (len(true_vp_list),true_positive, false_positive)
 
 class VPRecorder:
     def __init__(self):

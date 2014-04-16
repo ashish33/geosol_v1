@@ -11,8 +11,10 @@ import cv2
 
 from image.low_level import open_img, BinarizedSegmentation
 from image.ocr import LabelSaver, LabelRecognizer
-from image.visual_primitive import VPGenerator, VPRecorder
+from image.visual_primitive import VPGenerator, VPRecorder, display_vp, \
+    evaluate_solution
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def record():
@@ -34,38 +36,58 @@ def train():
     for segment in bin_seg.label_seg_list:
         label_trainer.interactive_save(segment.img)
         
-def test():
+def save_solution():
     imgpath = sys.argv[1]
     folderpath = os.path.dirname(imgpath)
-    filepath = os.path.join(folderpath, 'vp_sln_0000.csv')
-    img = open_img(sys.argv[1])
+    img = open_img(imgpath)
     bin_seg = BinarizedSegmentation(img)
     rc = LabelRecognizer()
     for seg in bin_seg.label_seg_list:
         seg.assign_label(rc.recognize(seg.img))
 
+    
     # line_params:  (rho, theta, line_mg, line_ml, th, nms_rho, nms_theta)
     # circle_params: (dp, minRadius, maxRadius, arc_mg, arc_ml, params1, params2, minDist)
-    #line_params = (1,np.pi/180,3,20,30,2,2)
-    # circle_params = (1,20,200,3,20,50,50,2)
-    #vpg = VPGenerator(bin_seg,eps=1.5)
-    vpg = VPGenerator(filepath=filepath)
-    out_img = cv2.cvtColor(img,cv2.cv.CV_GRAY2BGR)
+    itr = 1
+    digit = 6
+    num = 10000
+#    for itr in range(num):
+    line_params = (1,np.pi/180,3,20,30,2,np.pi/60)
+    circle_params = (1,20,100,2,20,50,40,2)
+    naivepath = os.path.join(folderpath,'naive')
+    infopath = os.path.join(naivepath, 'info.csv')
+    info_fh = open(infopath, 'a')
     
-    for vp in vpg.vpline_list:
-        x0,y0,x1,y1 = [int(round(float(elem))) for elem in vp.abs_line_tuple]
-        cv2.line(out_img,(x0,y0),(x1,y1),(255,0,0),1)
-    for vp in vpg.vparc_list:
-        x,y,r,t0,t1 = [int(round(float(elem))) for elem in vp.abs_arc_tuple]
-        cv2.circle(out_img,(int(x),int(y)),int(r),(0,255,0),1)
+    name = ('{0:0%d}' %digit).format(itr) + '.csv'
+    while name in os.listdir(naivepath):
+        itr += 1
+        name = ('{0:0%d}' %digit).format(itr) + '.csv'
+    slnpath = os.path.join(naivepath,name)
+    #vpg = VPGenerator(bin_seg,eps=1.5)
+    vpg = VPGenerator(bin_seg, line_params=line_params, circle_params=circle_params)
+    info = "%s,%s,%s\n" %(name,str(line_params),str(circle_params))
+    info_fh.write(info)
+    out_img = display_vp(img, vpg)
     
     cv2.imshow('detected circles', out_img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    #vpg.save(filepath)
+    vpg.save(slnpath)
+    info_fh.close()
     
-    
-    
+def evaluate():
+    folderpath = sys.argv[1]
+    img_path = os.path.join(folderpath, 'original.gif')
+    img = open_img(img_path)
+    true_sln_path = os.path.join(folderpath, 'gt_vp_sln.csv')
+    true_vpg = VPGenerator(filepath=true_sln_path)
+    test_sln_path = os.path.join(folderpath, 'vp_sln_0000.csv')
+    test_vpg = VPGenerator(filepath=test_sln_path)
+    out_img = display_vp(img, true_vpg)
+    cv2.imshow('test solution', out_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    print evaluate_solution(test_vpg, true_vpg)
      
 if __name__ == '__main__':
-    test()
+    save_solution()
