@@ -4,16 +4,17 @@ Created on Apr 14, 2014
 @author: minjoon
 '''
 from abc import ABCMeta, abstractmethod
+import csv
 from matplotlib import cm
 import os
 
 import cv2
 
+from external.path import next_name
 from geometry.util import sim_line, sim_circle
 from image.low_level import open_img
 import matplotlib.pyplot as plt
 import numpy as np
-import csv
 
 
 class VisualPrimitive:
@@ -121,10 +122,14 @@ constants: dp = 1, minRadius = 10, maxRadius = 200, max_gap = 3, params1 =
 variables: params2 (th), minDist (for nms)
 
 '''
+info_file = 'info.csv'
+
 class VPGenerator:
     def __init__ (self, bin_seg=None, filepath=None, line_params=None, circle_params=None, eps=1.5, label_tol=15):
         self.vpline_list = []
         self.vparc_list = []
+        self.line_params = [] #empty if gt solution
+        self.circle_params = [] #empty if gt solution
         
         # obtain VP info from a solution file (in csv)
         if filepath != None:
@@ -141,16 +146,34 @@ class VPGenerator:
                     for label in row[6:]:
                         vp.add_label(label)
                     self.vparc_list.append(vp)
+            
+            #read params
+            dir_path = os.path.dirname(filepath)
+            info_path = os.path.join(dir_path, info_file)
+            if os.path.exists(info_path):
+                info_fh = open(info_path, 'r')
+                reader = csv.reader(info_fh, delimiter=',')
+                for row in reader:
+                    if row[0] == os.path.basename(filepath):
+                        self.line_params = [float(x) for x in row[1].split(';')]
+                        self.circle_params = [float(x) for x in row[2].split(';')]
+                    break
         else:
     
             segment = bin_seg.dgm_seg
             nz_pts = segment.nz_pts
             loc = segment.loc
     
+            # default values
             if line_params == None:
-                line_params = (1,np.pi/180,3,20,30,2,np.pi/60)
+                self.line_params = (1,np.pi/180,3,20,30,2,np.pi/60)
+            else:
+                self.line_params = line_params
             if circle_params == None:
                 circle_params = (1,20,100,2,20,50,40,2)
+            else:
+                self.circle_params = circle_params
+            
             rho, theta, line_mg, line_ml, th, nms_rho, nms_theta = line_params
             dp, minRadius, maxRadius, arc_mg, arc_ml, param1, param2, minDist = circle_params
             method = cv2.cv.CV_HOUGH_GRADIENT
@@ -189,11 +212,29 @@ class VPGenerator:
         return temp_list
     
     # save absolute values of primitives
-    def save(self, filepath):
+    def save(self, filepath, img=None):
         fh = open(filepath, 'w')
         for vp in self.get_vp_list():
             fh.write(repr(vp)+'\n')
         fh.close()
+
+        dir_path = os.path.dirname(filepath)
+        name = os.path.basename(filepath)
+        # save params
+        if len(self.line_params) > 0 or len(self.circle_params) > 0:
+            info_path = os.path.join(dir_path, info_file)
+            info_fh = open(info_path, 'a')
+            name = os.path.basename(filepath)
+            line_str = ';'.join([str(x) for x in self.line_params])
+            circle_str = ';'.join([str(x) for x in self.circle_params])
+            info_fh.write('%s,%s,%s\n' %(name,line_str,circle_str))
+            info_fh.close()
+            
+        if img != None:
+            result_img = display_vp(img, self)
+            img_path = os.path.join(dir_path, name.split('.')[0]+'.png')
+            cv2.imwrite(img_path, result_img)
+        
         print 'Successfully saved visual primitives to %s' %filepath
         
 def display_vp(img, vpg):
