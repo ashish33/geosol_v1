@@ -125,7 +125,9 @@ variables: params2 (th), minDist (for nms)
 info_file = 'info.csv'
 
 class VPGenerator:
-    def __init__ (self, bin_seg=None, filepath=None, line_params=None, circle_params=None, eps=1.5, label_tol=15):
+    def __init__ (self, bin_seg=None, filepath=None, line_params=None, \
+                  circle_params=None, eps=1.5, label_tol=15, \
+                  line_num=20, circle_num=10):
         self.vpline_list = []
         self.vparc_list = []
         self.line_params = [] #empty if gt solution
@@ -159,6 +161,8 @@ class VPGenerator:
                         self.circle_params = [float(x) for x in row[2].split(';')]
                     break
         else:
+            rt_list = []
+            circle_list = []
     
             segment = bin_seg.dgm_seg
             nz_pts = segment.nz_pts
@@ -177,11 +181,16 @@ class VPGenerator:
             rho, theta, line_mg, line_ml, th, nms_rho, nms_theta = line_params
             dp, minRadius, maxRadius, arc_mg, arc_ml, param1, param2, minDist = circle_params
             method = cv2.cv.CV_HOUGH_GRADIENT
-            rt_list = cv2.HoughLines(segment.bin_img,rho,theta,th)[0]
+            temp = cv2.HoughLines(segment.bin_img,rho,theta,th)
+            if temp != None:
+                rt_list = temp[0]
+                if len(rt_list) > line_num:
+                    rt_list = rt_list[:line_num]
             temp = cv2.HoughCircles(segment.img,method,dp,minDist,param1=param1,param2=param2,minRadius=minRadius,maxRadius=maxRadius)
-            circle_list = []
             if temp != None:
                 circle_list = temp[0]
+                if len(circle_list) > circle_num:
+                    circle_list = circle_list[:circle_num]
             
             # non-maximal suppression
             nms_rt_list = rt_nms(rt_list, nms_rho, nms_theta)
@@ -201,10 +210,13 @@ class VPGenerator:
                 vp.assign_abs(loc)
                 
             # Assign labels to each segment
+            '''
             for vp in self.vpline_list:
                 for x,y in [vp.abs_line_tuple[:2],vp.abs_line_tuple[2:]]:
                     dist_list = [distance(x,y,seg.center[0],seg.center[1]) for seg in bin_seg.label_seg_list]
-                    vp.add_label(bin_seg.label_seg_list[np.argmin(dist_list)].label)
+                    if len(dist_list) > 0:
+                        vp.add_label(bin_seg.label_seg_list[np.argmin(dist_list)].label)
+            '''
                 
     def get_vp_list(self):
         temp_list = self.vpline_list[:]
@@ -253,6 +265,8 @@ def distance(x0, y0, x1, y1):
 
 # non-maximal suppression for rho-theta list
 def rt_nms(rt_list, nms_rho, nms_theta):
+    if len(rt_list) == 0:
+        return []
     out_list = [rt_list[0]]
     for r,t in rt_list[1:]:
         cond = True

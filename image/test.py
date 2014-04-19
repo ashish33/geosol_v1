@@ -18,38 +18,53 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def record():
-    recorder = VPRecorder()
-    recorder.record(sys.argv[1])
+def record(problem_path):
+    dir_list = directory_iterator(problem_path, 4)
+    for direc in dir_list[55:56]:
+        if not os.path.exists(os.path.join(direc,'gt_vp_sln.csv')):
+            img_path = find_file(direc, 'original')
+            recorder = VPRecorder()
+            recorder.record(img_path)
     
 
-def train():
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    img = open_img(sys.argv[1])
-    bin_seg = BinarizedSegmentation(img)
-    
-    '''
-    ax.imshow(bin_seg.dgm_seg.img, cmap=cm.Greys_r)
-    plt.show()
-    '''
-    label_trainer = LabelSaver()
-    for segment in bin_seg.label_seg_list:
-        label_trainer.interactive_save(segment.img)
+def label_train(problem_path):
+    dir_list = directory_iterator(problem_path, 4)
+    for direc in dir_list[35:]:
+        print 'In folder ' + direc
+        img_path = find_file(direc, 'original')
+        img = open_img(img_path)
+        bin_seg = BinarizedSegmentation(img)
+        cv2.imshow('binary image', bin_seg.bin_img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        label_trainer = LabelSaver()
+        for segment in bin_seg.label_seg_list:
+            if segment.area > 25:
+                label_trainer.interactive_save(segment.img)
 
 def get_random_params():
-    th = np.random.random_integers(30,100)
-    nms_rho = np.random.random_integers(2,10)
-    nms_theta = np.random.random_integers(3*np.pi/180,10*np.pi/180)
-    param2 = np.random.random_integers(40,100)
-    minDist = np.random.random_integers(2,10)
+    th = np.random.random_integers(30,130)
+    nms_rho = np.random.random_integers(2,6)
+    nms_theta = np.random.random_integers(5*np.pi/180,10*np.pi/180)
+    param2 = np.random.random_integers(35,55)
+    minDist = np.random.random_integers(3,10)
     line_params = (1,np.pi/180,3,20,th,nms_rho,nms_theta)
     circle_params = (0.5,20,150,2,20,50,param2,minDist)
     return (line_params,circle_params)
 
-def baseline_evaluation(problem_path, num):
+def get_params():
+    th = 50 # 30-130
+    nms_rho = 3 #2-6
+    nms_theta = 5 * np.pi/180 #5-10
+    param2 = 35 #35-55
+    minDist = 10 #3-10
+    line_params = (1,np.pi/180,3,20,th,nms_rho,nms_theta)
+    circle_params = (0.5,20,150,2,20,50,param2,minDist)
+    return (line_params,circle_params)
+
+def baseline_evaluation(problem_path, N):
     f1_list = []
-    for itr in range(num):
+    for itr in range(N):
         line_params, circle_params = get_random_params()
         num, tp, fp = baseline_test(problem_path, line_params, circle_params)
         p, r = precision_recall(num, tp, fp)
@@ -58,11 +73,21 @@ def baseline_evaluation(problem_path, num):
         
     dir_list = directory_iterator(problem_path, 4)
     problem_size = len(dir_list)
-    title = 'P=%d, N=%d' %(problem_size, num)
-    img_path = next_name(problem_path)
+    title = 'P=%d, N=%d' %(problem_size, N)
+    img_path = next_name(problem_path,2,'png')
     plt.hist(f1_list)
     plt.title(title)
-    plt.savefig()
+    plt.savefig(img_path)
+
+def precision_recall(num, tp, fp):        
+    recall = 0
+    if num > 0:
+        recall = float(tp)/num
+    precision = 0
+    if tp+fp > 0:
+        precision = float(tp)/(tp+fp)
+    return (precision, recall)
+     
         
 
 '''
@@ -97,28 +122,6 @@ def baseline_test(problem_path, line_params, circle_params):
     fh.close()
     return total
 
-def precision_recall(num, tp, fp):        
-    recall = 0
-    if num > 0:
-        recall = float(tp)/num
-    precision = 0
-    if tp+fp > 0:
-        precision = float(tp)/(tp+fp)
-    return (precision, recall)
-    
-def evaluate():
-    folderpath = sys.argv[1]
-    img_path = os.path.join(folderpath, 'original.gif')
-    img = open_img(img_path)
-    true_sln_path = os.path.join(folderpath, 'gt_vp_sln.csv')
-    true_vpg = VPGenerator(filepath=true_sln_path)
-    test_sln_path = os.path.join(folderpath, 'vp_sln_0000.csv')
-    test_vpg = VPGenerator(filepath=test_sln_path)
-    out_img = display_vp(img, true_vpg)
-    cv2.imshow('test solution', out_img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    print evaluate_solution(test_vpg, true_vpg)
-     
 if __name__ == '__main__':
-    baseline_evaluation(sys.argv[1], 100)
+    #record(sys.argv[1])
+    baseline_evaluation(sys.argv[1], int(sys.argv[2]))

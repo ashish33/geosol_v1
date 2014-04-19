@@ -33,7 +33,8 @@ def binarize(img, alg='otsu'):
     Otsu's method for image binarization
     '''
     if alg == 'otsu':
-        ret, thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+        blur = cv2.GaussianBlur(img, (0,0), 0.7)
+        ret, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
         return thresh
     
 def inverse_img(img):
@@ -57,6 +58,7 @@ class ImageSegment:
         self.nz_pts = np.transpose(np.nonzero(np.transpose(bin_img)>0))
         self.label = ''
         self.center = np.array(loc) + np.array(self.size)/2.0
+        self.area = self.size[0]*self.size[1]
         
     def assign_label(self, label):
         self.label = label
@@ -72,8 +74,9 @@ get_label_list()
 
 '''
 class BinarizedSegmentation:
-    def __init__(self, img, bin_alg='otsu', seg_alg='naive', dgm_crit='area'):
+    def __init__(self, img, bin_alg='otsu', seg_alg='naive', dgm_crit='area', min_area=25):
         bin_img = binarize(img, alg=bin_alg)
+        self.bin_img = bin_img
         segment_list = []
         
         if seg_alg == 'naive':
@@ -85,16 +88,16 @@ class BinarizedSegmentation:
                 seg_img = bool_img(img[s], cond)
                 loc = (s[1].start,s[0].start)
                 segment = ImageSegment(seg_img, loc, bin_img[s]*cond,img[s])
-                segment_list.append(segment)
+                if segment.area > min_area:
+                    segment_list.append(segment)
                 
         if dgm_crit == 'area':
             largest_idx = -1
             largest_area = 0
             for idx, segment in enumerate(segment_list):
-                area = segment.size[0]*segment.size[1]
-                if area > largest_area:
+                if segment.area > largest_area:
                     largest_idx = idx
-                    largest_area = area
+                    largest_area = segment.area
             self.dgm_seg = segment_list[largest_idx]
             del segment_list[largest_idx]
             self.label_seg_list = segment_list            

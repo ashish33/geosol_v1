@@ -41,9 +41,12 @@ class LabelSaver:
         name = self.next_name()
         cv2.imwrite(self.path+name, img)
         char = raw_input("Label for %s: " %name)
-        self.data_fh.write("%s,%s," %(name,char))
-        flat_img = label_resize(img).flatten()
-        self.data_fh.write(",".join([str(int(e)) for e in flat_img])+'\n')
+        if char == "":
+            os.remove(self.path+name)
+        else:
+            self.data_fh.write("%s,%s," %(name,char))
+            flat_img = label_resize(img).flatten()
+            self.data_fh.write(",".join([str(int(e)) for e in flat_img])+'\n')
         
         
     def save(self, img, char): 
