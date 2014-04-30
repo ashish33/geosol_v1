@@ -15,6 +15,7 @@ from scipy import ndimage
 from PIL import Image
 import cv2
 
+from external.path import next_name
 import numpy as np
 
 
@@ -46,7 +47,6 @@ Given img and bool_mat, for all False element set 255.
 '''
 def bool_img(img, bool_mat):
     return inverse_img(inverse_img(img)*bool_mat)
-
     
 class ImageSegment:
     def __init__(self, img, loc, bin_img=None, slice_img=None):
@@ -78,10 +78,11 @@ class BinarizedSegmentation:
         bin_img = binarize(img, alg=bin_alg)
         self.bin_img = bin_img
         segment_list = []
+        self.dgm_seg = None
         
         if seg_alg == 'naive':
             kernel = np.ones((3,3), np.uint8)
-            labeled, nr_objects = ndimage.label(bin_img)
+            labeled, nr_objects = ndimage.label(bin_img, structure=kernel)
             slices = ndimage.find_objects(labeled)
             for idx, s in enumerate(slices):
                 cond = labeled[s]==(idx+1)
@@ -99,5 +100,14 @@ class BinarizedSegmentation:
                     largest_idx = idx
                     largest_area = segment.area
             self.dgm_seg = segment_list[largest_idx]
-            del segment_list[largest_idx]
-            self.label_seg_list = segment_list            
+            segment_list[largest_idx] = segment_list[0]
+            segment_list[0] = self.dgm_seg
+            self.label_seg_list = segment_list[1:]
+            self.segment_list = segment_list
+    
+    def save(self, folderpath, digit=2):
+        filepath = next_name(folderpath, digit, 'png')
+        cv2.imwrite(filepath, self.dgm_seg.bin_img)
+        for seg in self.label_seg_list:
+            filepath = next_name(folderpath, digit, 'png')
+            cv2.imwrite(filepath, seg.slice_img)

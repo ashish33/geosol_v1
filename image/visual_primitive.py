@@ -174,12 +174,12 @@ class VPGenerator:
             else:
                 self.line_params = line_params
             if circle_params == None:
-                circle_params = (1,20,100,2,20,50,40,2)
+                self.circle_params = (1,20,100,2,20,50,40,2)
             else:
                 self.circle_params = circle_params
             
-            rho, theta, line_mg, line_ml, th, nms_rho, nms_theta = line_params
-            dp, minRadius, maxRadius, arc_mg, arc_ml, param1, param2, minDist = circle_params
+            rho, theta, line_mg, line_ml, th, nms_rho, nms_theta = self.line_params
+            dp, minRadius, maxRadius, arc_mg, arc_ml, param1, param2, minDist = self.circle_params
             method = cv2.cv.CV_HOUGH_GRADIENT
             temp = cv2.HoughLines(segment.bin_img,rho,theta,th)
             if temp != None:
@@ -254,14 +254,12 @@ def display_vp(img, vpg):
     
     for vp in vpg.vpline_list:
         x0,y0,x1,y1 = [int(np.around(float(elem))) for elem in vp.abs_line_tuple]
-        cv2.line(out_img,(x0,y0),(x1,y1),(255,0,0),1)
+        cv2.line(out_img,(x0,y0),(x1,y1),(255,0,0),2)
     for vp in vpg.vparc_list:
         x,y,r,t0,t1 = [int(np.around(float(elem))) for elem in vp.abs_arc_tuple]
-        cv2.circle(out_img,(int(x),int(y)),int(r),(0,255,0),1)
+        cv2.circle(out_img,(int(x),int(y)),int(r),(0,255,0),2)
     return out_img
 
-def distance(x0, y0, x1, y1):
-    return np.sqrt((x1-x0)**2+(y1-y0)**2)
 
 # non-maximal suppression for rho-theta list
 def rt_nms(rt_list, nms_rho, nms_theta):
@@ -271,7 +269,8 @@ def rt_nms(rt_list, nms_rho, nms_theta):
     for r,t in rt_list[1:]:
         cond = True
         for rr,tt in out_list:
-            if np.abs(r-rr)<nms_rho and np.abs(t-tt)<nms_theta:
+            if (np.abs(r-rr)<nms_rho and np.abs(t-tt)<nms_theta) or \
+            (min(t,tt)+np.pi-max(t,tt)<nms_theta and np.abs(r+rr) < nms_rho):
                 cond = False
                 break
         if cond:
@@ -319,7 +318,7 @@ def circle2arcs(nz_pts, x, y, r, arc_mg, arc_ml, eps=1.5):
 precision: true_positive/(true_positive+false_positive)
 recall: true_positive/len(true_vp_list)
 '''
-def evaluate_solution(test_vpg, true_vpg, tolerance=0.7):
+def evaluate_solution(test_vpg, true_vpg, tolerance=0.8):
     false_positive = 0
     true_positive = 0
     true_vp_list = true_vpg.get_vp_list()

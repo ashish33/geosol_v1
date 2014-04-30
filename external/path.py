@@ -6,6 +6,8 @@ Created on Apr 16, 2014
 import os.path
 import sys
 
+# num is the starting number
+# extension is png, csv, etc.
 def directory_iterator(path, digit, extension='', num=0):
     dir_list = os.listdir(path)
     if len(extension) > 0:
