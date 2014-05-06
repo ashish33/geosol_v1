@@ -63,7 +63,7 @@ def get_max_val(func, opt_set, params, element_list):
     return (max_val, max_idx)
         
 class VPSelector(VPGenerator):
-    def __init__(self, bin_seg, vp_gen, params=None, factor=2):
+    def __init__(self, bin_seg, vp_gen, params=None, factor=3):
         self.vpline_list = []
         self.vparc_list = []
         self.line_params = [] 
