@@ -5,8 +5,8 @@ Created on Apr 29, 2014
 
 @author: minjoon
 '''
-from geometry.util import line2pt_dist, cir2pt_dist
-from image.visual_primitive import VPLine, VPArc, VPGenerator
+from geosol_v1.geometry.util import line2pt_dist, cir2pt_dist
+from geosol_v1.image.visual_primitive import VPLine, VPArc, VPGenerator
 import numpy as np
 import random
 

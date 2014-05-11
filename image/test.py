@@ -12,11 +12,12 @@ import sys
 
 import cv2
 
-from external.path import directory_iterator, find_file, next_name
-from geometry.vp_selector import VPSelector
-from image.low_level import open_img, BinarizedSegmentation
-from image.ocr import LabelSaver, LabelRecognizer
-from image.visual_primitive import VPGenerator, VPRecorder, evaluate_solution
+from geosol_v1.external.path import directory_iterator, find_file, next_name
+from geosol_v1.geometry.vp_selector import VPSelector
+from geosol_v1.image.low_level import open_img, BinarizedSegmentation
+from geosol_v1.image.ocr import LabelSaver, LabelRecognizer
+from geosol_v1.image.visual_primitive import VPGenerator, VPRecorder, evaluate_solution
+from geosol_v1.geometry.diagram_graph import DiagramGraph
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy as np
@@ -195,6 +196,20 @@ def single_opt(direc):
     vps = VPSelector(bin_seg, vpg)
     vps.save(os.path.join(direc,'postopt.png'),img)
 
+def run_and_save(direc):
+    imgpath = find_file(direc, 'original')
+    bgr_img = open_img(imgpath, color='BGR')
+    img = cv2.cvtColor(bgr_img, cv2.cv.CV_BGR2GRAY)
+
+    bin_seg = BinarizedSegmentation(img)
+    bin_seg.save(direc)
+    vpg = VPGenerator(bin_seg)
+    vpg.save(os.path.join(direc,'preopt.png'),img)
+    vps = VPSelector(bin_seg, vpg)
+    vps.save(os.path.join(direc,'postopt.png'),img)
+    dg = DiagramGraph(vps)
+    dg.draw(bgr_img, dg.gearc_list[1])
+    cv2.imwrite(os.path.join(direc,'postdg.png'), bgr_img)
     
 
 if __name__ == '__main__':
@@ -207,4 +222,5 @@ if __name__ == '__main__':
     #print baseline_test(sys.argv[1], l, c)
     #clear_segs(problem_path)
     #generate_segs(problem_path)
-    optimization(problem_path)
+    # optimization(problem_path)
+    run_and_save(problem_path)

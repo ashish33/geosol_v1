@@ -10,9 +10,9 @@ import os
 
 import cv2
 
-from external.path import next_name
-from geometry.util import sim_line, sim_circle
-from image.low_level import open_img
+from geosol_v1.external.path import next_name
+from geosol_v1.geometry.util import sim_line, sim_circle
+from geosol_v1.image.low_level import open_img
 import matplotlib.pyplot as plt
 import numpy as np
 

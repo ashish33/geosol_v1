@@ -15,7 +15,7 @@ from scipy import ndimage
 from PIL import Image
 import cv2
 
-from external.path import next_name
+from geosol_v1.external.path import next_name
 import numpy as np
 
 

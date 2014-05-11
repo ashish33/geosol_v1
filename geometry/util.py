@@ -6,6 +6,62 @@ Created on Apr 15, 2014
 
 import numpy as np
 
+def line2line_ix(line0, line1, eps=1):
+    line0 = np.array(line0)
+    line1 = np.array(line1)
+    o1 = line0[:2]
+    p1 = line0[2:]
+    o2 = line1[:2]
+    p2 = line1[2:]
+    
+    x = o2 - o1
+    d1 = p1 - o1
+    d2 = p2 - o2
+    cross = d1[0]*d2[1] - d1[1]*d2[0]
+    if (np.abs(cross) < eps):
+        return None
+    
+    t1 = float(x[0] * d2[1] - x[1] * d2[0])/cross
+    r = o1 + d1 * t1
+    return r
+
+def line2arc_ix(line, arc, eps=1):
+    x0,y0,r,t0,t1 = arc
+    x1,y1,x2,y2 = line
+    x1 -= x0
+    x2 -= x0
+    y1 -= y0
+    x2 -= y0
+    
+    dx = x2-x1
+    dy = y2-y1
+    dr = np.sqrt(dx**2+dy**2)
+    D = x1*y2 - x2*y1
+    disc = (r*dr)**2-D**2
+    temp_sln = []
+    if disc < 0:
+        return temp_sln
+    else:
+        sgn_dy = 1
+        if dy < 0:
+            sgn_dy = -1
+        sx0 = (D*dy+sgn_dy*dx*np.sqrt(disc))/dr**2
+        sy0 = (-D*dx+np.abs(dy)*np.sqrt(disc))/dr**2
+        temp_sln.append((sx0+x0,sy0+y0))
+        if disc > 0:
+            sx0 = (D*dy-sgn_dy*dx*np.sqrt(disc))/dr**2
+            sy0 = (-D*dx-np.abs(dy)*np.sqrt(disc))/dr**2
+            temp_sln.append((sx0+x0,sy0+y0))
+        
+        # check if sln is on actual line
+        sln = []
+        for pt in temp_sln:
+            if line2pt_dist(line,pt) < eps:
+                sln.append(pt)
+        return sln
+            
+        
+
 def segment_line(line, start, end):
     line = np.array(line)
     pt0 = line[:2]
@@ -14,6 +70,13 @@ def segment_line(line, start, end):
     new_pt1 = pt0 + end*(pt1-pt0)
     return np.append(new_pt0,new_pt1)
 
+def segment_arc(arc, start, end):
+    return np.append(arc[:3],[start*2*np.pi,end*2*np.pi])
+
+def arc2pt_dist(arc, pt):
+    return cir2pt_dist(arc,pt)
+
+
 def cir2pt_dist(cir, pt):
     pt = np.array(pt)
     dist = pt2pt_dist(cir[:2],pt)
@@ -21,18 +84,33 @@ def cir2pt_dist(cir, pt):
 
 # distance between line and point
 def line2pt_dist(line, pt):
-    pt = np.array(pt)
-    mid = line_mid(line)
-    vector = line_vector(line)
-    normal = line_normal(line)
-    par_dist = np.abs(np.dot(pt-mid, vector))
-    per_dist = np.abs(np.dot(pt-mid, normal)) 
     line_len = pt2pt_dist(line[:2],line[2:])
-    if par_dist < line_len/2:
-        return per_dist
+    if np.abs(parallel_dist(line,pt)) < line_len/2:
+        return perpen_dist(line,pt)
     else:
         return min(pt2pt_dist(pt,line[:2]),pt2pt_dist(pt,line[2:]))
     
+def parallel_dist(line, pt):
+    mid = line_mid(line)
+    pt = np.array(pt)
+    vector = line_vector(line)
+    return np.dot(pt-mid,vector)
+
+def perpen_dist(line, pt):
+    mid = line_mid(line)
+    pt = np.array(pt)
+    normal = line_normal(line)
+    return np.abs(np.dot(pt-mid,normal))
+
+def pt2pt_angle(center, pt):
+    center = np.array(center)
+    vector = np.array(pt) - center
+    angle = np.arctan(float(vector[1])/vector[0])
+    if vector [0] < 0:
+        angle += np.pi
+    if angle < 0:
+        angle += 2*np.pi
+    return angle
     
 def line_mid(line):
     line = np.array(line)
@@ -49,8 +127,6 @@ def line_vector(line):
 def line_normal(line):
     vector = line_vector(line)
     return np.array([vector[1],-vector[0]])
-    
-
 
 def pt2pt_dist(pt0, pt1):
     x0, y0 = pt0
@@ -113,3 +189,42 @@ def sim_line(line1, line2):
     metric_angle = np.abs(np.dot(v1,v2))
     
     return metric_dist * metric_angle
+
+# non-maximum in 2D
+def non_maximum_suppression(pt_list, eps):
+    out_list = []
+    for pt_in in pt_list:
+        cond = True
+        for pt_out in out_list:
+            if pt2pt_dist(pt_in, pt_out) < eps:
+                cond = False
+                break
+        if cond:
+            out_list.append(pt_in)
+    return out_list
+
+def test_line2line_ix():
+    line0 = (0,0,3,3)
+    line1 = (0,3,3,0)
+    print line2line_ix(line0,line1)
+    
+def test_line2arc_ix():
+    line0 = (-5,-5,5,5)
+    arc = (0,0,3,0,0)
+    print line2arc_ix(line0,arc)
+    print 3/np.sqrt(2)
+    
+def test_pt2pt_angle():
+    print pt2pt_angle([0,0],[1,1])
+    print np.pi/4
+            
+if __name__ == "__main__":
+    test_line2arc_ix()
+    
+    
+    
+    
+    
+    
+    
+    
