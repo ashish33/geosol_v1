@@ -123,9 +123,11 @@ class DiagramGraph:
                 
             # Add indirect neighbor
             for idx, vx0 in enumerate(vx_list):
-                for vx1 in vx_list[idx:]:
-                    vx0.add_vx(vx1, 'i')
-                    vx1.add_vx(vx0, 'i')
+                for vx1 in vx_list[idx+1:]:
+                    if vx1 not in vx0.vx_dict:
+                        vx0.add_vx(vx1, 'i')
+                    if vx0 not in vx1.vx_dict:
+                        vx1.add_vx(vx0, 'i')
             
         # construct GEArc
         for vparc in self.vparc_list:
@@ -143,6 +145,8 @@ class DiagramGraph:
                     next_idx = idx_list[i+1]
                 start = angle_list[idx]
                 end = angle_list[next_idx]
+                if start > end:
+                    start -= 2*np.pi
                 gearc = GEArc(vparc, start, end)
                 self.gearc_list.append(gearc)
                 key = (vx_list[idx],vx_list[next_idx])
@@ -155,32 +159,46 @@ class DiagramGraph:
                 vx_list[next_idx].add_vx(vx_list[idx],'d')
                 
             for idx, vx0 in enumerate(vx_list):
-                for vx1 in vx_list[idx:]:
-                    vx0.add_vx(vx1, 'i')
-                    vx1.add_vx(vx0, 'i')
+                for vx1 in vx_list[idx+1:]:
+                    if vx1 not in vx0.vx_dict:
+                        vx0.add_vx(vx1, 'i')
+                    if vx0 not in vx1.vx_dict:
+                        vx1.add_vx(vx0, 'i')
     
-    # if extensive=True, then enumerate all combinations below num
-    # if duplicate=True, next vertex can be already visited
-    # note that ABC and CBA will be considered different
-    # this needs to be handled by the user using the enumerate
-    def enumerate(self, num, extensive=False, revisit=False):
+    '''
+    seq="lll", recall=True will represent a triangle
+    seq="ll", recall=False will represent an angle
+    seq="lal", recall=True will represent a pie
+    revisit=True will allow visiting already visited vertices
+    '''
+    def query(self, seq, recall, revisit=False):
         comb_list = []
-        
-        def helper(vx_list):
-            if extensive or len(vx_list) == num:
+        ge_comb_list = []
+        def helper(vx_list, ge_list):
+            # base case
+            if recall and len(vx_list) == len(seq):
+                ge = ge_list_has(self.get_ge_list(vx_list[0], vx_list[-1]), seq[-1])
+                if ge:
+                    comb_list.append(vx_list)
+                    ge_list.append(ge)
+                    ge_comb_list.append(ge_list)
+            elif not recall and len(vx_list) > len(seq):
                 comb_list.append(vx_list)
-
-            if len(vx_list) == num:
-                return
+                ge_comb_list.append(ge_list)
             else:
-                for vx in vx_list[-1].vx_dict:
+                idx = len(vx_list) - 1
+                for vx in vx_list[idx].vx_dict:
                     if vx not in vx_list or revisit:
-                        new_vx_list = vx_list[:]
-                        new_vx_list.append(vx)
-                        helper(new_vx_list)
-        
-        helper([])
-        return comb_list
+                        ge = ge_list_has(self.get_ge_list(vx_list[idx],vx),seq[idx])
+                        if ge:
+                            new_vx_list = vx_list[:]
+                            new_vx_list.append(vx)
+                            new_ge_list = ge_list[:]
+                            new_ge_list.append(ge)
+                            helper(new_vx_list, new_ge_list)
+        for vx in self.vx_list:
+            helper([vx],[])
+        return (comb_list, ge_comb_list)
     
     def get_ge_list(self, vx0, vx1):
         ge_list = []
@@ -231,6 +249,13 @@ class DiagramGraph:
         for vx in vx_list:
             arc_tuple = np.append(vx.loc, [vertex_radius,0,0])
             draw_arc(bgr_img, arc_tuple, vertex_color, vertex_width)
+
+def ge_list_has(ge_list, string):
+    for ge in ge_list:
+        if (isinstance(ge,GELine) and string=='l') or \
+        (isinstance(ge,GEArc) and string=='a'):
+            return ge
+    return None
             
 
         

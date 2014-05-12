@@ -208,7 +208,9 @@ def run_and_save(direc):
     vps = VPSelector(bin_seg, vpg)
     vps.save(os.path.join(direc,'postopt.png'),img)
     dg = DiagramGraph(vps)
-    dg.draw(bgr_img, dg.gearc_list[1])
+    #dg.draw(bgr_img, ge_list=[], vx_list=[dg.vx_list[0]])
+    vx_comb_list, ge_comb_list = dg.query('lal',True)
+    dg.draw(bgr_img,ge_list=ge_comb_list[0],vx_list=vx_comb_list[0])
     cv2.imwrite(os.path.join(direc,'postdg.png'), bgr_img)
     
 

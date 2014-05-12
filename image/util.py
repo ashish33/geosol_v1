@@ -11,6 +11,9 @@ def draw_line(img, line, color, width):
     cv2.line(img,(x0,y0),(x1,y1),color,width)
     
 def draw_arc(img, arc, color, width):
-    x,y,r,t0,t1 = [int(np.around(float(elem))) for elem in arc]
-    cv2.circle(img,(int(x),int(y)),int(r),color,width)
+    x,y,r,t0,t1 = arc
+    if t0 == 0 and t1 == 0:
+        t1 = 2*np.pi
+    cv2.ellipse(img,(int(x+0.5),int(y+0.5)),(int(r+0.5),int(r+0.5)), \
+                0,t0*180/np.pi,t1*180/np.pi,color,width)
     
