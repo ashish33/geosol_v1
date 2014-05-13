@@ -204,20 +204,16 @@ def run_and_save(direc):
     img = cv2.cvtColor(bgr_img, cv2.cv.CV_BGR2GRAY)
 
     bin_seg = BinarizedSegmentation(img)
-    bin_seg.save(direc)
+    #bin_seg.save(direc)
     vpg = VPGenerator(bin_seg)
-    vpg.save(os.path.join(direc,'preopt.png'),img)
+    #vpg.save(os.path.join(direc,'preopt.png'),img)
     vps = VPSelector(bin_seg, vpg)
-    vps.save(os.path.join(direc,'postopt.png'),img)
+    #vps.save(os.path.join(direc,'postopt.png'),img)
     dg = DiagramGraph(vps)
     #dg.draw(bgr_img, ge_list=[], vx_list=[dg.vx_list[0]])
     vx_comb_list, ge_comb_list = dg.query('lal',True)
     dg.draw(bgr_img,ge_list=ge_comb_list[0],vx_list=vx_comb_list[0])
     cv2.imwrite(os.path.join(direc,'postdg.png'), bgr_img)
-    cPickle.dump(dg, open("save.p","wb"))
-    
-def hoho():
-    dg = cPickle.load(open("save.p","rb"))
     
 
 if __name__ == '__main__':
@@ -231,5 +227,4 @@ if __name__ == '__main__':
     #clear_segs(problem_path)
     #generate_segs(problem_path)
     # optimization(problem_path)
-    #run_and_save(problem_path)
-    hoho()
+    run_and_save(problem_path)

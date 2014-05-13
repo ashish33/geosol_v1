@@ -9,13 +9,14 @@ If the filepath is not a compatible file type ('png'),
 convert the original image to the compatible type then read it.
 '''
 
+from geosol_v1.external.path import next_name
+from geosol_v1.geometry.util import pt2pt_dist
 import os
 from scipy import ndimage
 
 from PIL import Image
 import cv2
 
-from geosol_v1.external.path import next_name
 import numpy as np
 
 
@@ -47,6 +48,8 @@ Given img and bool_mat, for all False element set 255.
 '''
 def bool_img(img, bool_mat):
     return inverse_img(inverse_img(img)*bool_mat)
+
+# target must have method "assign_label"
     
 class ImageSegment:
     def __init__(self, img, loc, bin_img=None, slice_img=None):

@@ -40,11 +40,15 @@ class GEArc(GraphEdge):
 class Vertex:
     def __init__(self, loc, idx):
         self.loc = tuple(loc) # (x,y) tuple
-        self.vx_dict = {} # vx : 'd': direct neighbor, 'i': indirect neighbor
+        self.vx_dict = {} # vx : 1 = direct neighbor, 2+ = indirect neighbor
         self.idx = idx
+        self.label = None
         
     def add_vx(self, vx, key):
         self.vx_dict[vx] = key
+        
+    def assign_label(self, label):
+        self.label = label
             
     def __repr__(self):
         return "(%.1f,%.1f,)" %self.loc
@@ -115,17 +119,12 @@ class DiagramGraph:
                 self.geline_list.append(geline)
                 # Add the edge to the graph
                 self.line_graph[(vx_list[idx].idx,vx_list[next_idx].idx)] = geline
-                # Add direct neighbor
-                vx_list[idx].add_vx(vx_list[next_idx],'d')
-                vx_list[next_idx].add_vx(vx_list[idx],'d')
                 
-            # Add indirect neighbor
-            for idx, vx0 in enumerate(vx_list):
-                for vx1 in vx_list[idx+1:]:
-                    if vx1 not in vx0.vx_dict:
-                        vx0.add_vx(vx1, 'i')
-                    if vx0 not in vx1.vx_dict:
-                        vx1.add_vx(vx0, 'i')
+            # Add neighbors
+            for idx0, vx0 in enumerate(vx_list):
+                for idx1, vx1 in enumerate(vx_list[idx0+1:]):
+                    vx0.add_vx(vx1, np.abs(idx0-idx1))
+                    vx1.add_vx(vx0, np.abs(idx0-idx1))
             
         # construct GEArc
         for vparc in self.vparc_list:
@@ -153,20 +152,17 @@ class DiagramGraph:
                     self.arc_graph[key].append(gearc)
                 else:
                     self.arc_graph[key] = [gearc]
-                vx_list[idx].add_vx(vx_list[next_idx],'d')
-                vx_list[next_idx].add_vx(vx_list[idx],'d')
                 
-            for idx, vx0 in enumerate(vx_list):
-                for vx1 in vx_list[idx+1:]:
-                    if vx1 not in vx0.vx_dict:
-                        vx0.add_vx(vx1, 'i')
-                    if vx0 not in vx1.vx_dict:
-                        vx1.add_vx(vx0, 'i')
+            for idx0, vx0 in enumerate(vx_list):
+                for idx1, vx1 in enumerate(vx_list[idx0+1:]):
+                    vx0.add_vx(vx1, np.abs(idx0-idx1))
+                    vx1.add_vx(vx0, np.abs(idx0-idx1))
     
     '''
     seq="lll", recall=True will represent a triangle
     seq="ll", recall=False will represent an angle
     seq="lal", recall=True will represent a pie
+    seq="c" returns all circle
     revisit=True will allow visiting already visited vertices
     '''
     def query(self, seq, recall, revisit=False):
@@ -247,6 +243,12 @@ class DiagramGraph:
         for vx in vx_list:
             arc_tuple = np.append(vx.loc, [vertex_radius,0,0])
             draw_arc(bgr_img, arc_tuple, vertex_color, vertex_width)
+            
+    def assign_labels(self, segments):
+        for vertex in self.vx_list:
+            dist_list = [pt2pt_dist(vertex.loc,segment.center) for segment in segments]
+            idx = np.argmin(dist_list)
+            vertex.assign_label(segments[idx].label)
 
 def ge_list_has(ge_list, string):
     for ge in ge_list:
@@ -254,6 +256,8 @@ def ge_list_has(ge_list, string):
         (isinstance(ge,GEArc) and string=='a'):
             return ge
     return None
+
+    
             
 
         

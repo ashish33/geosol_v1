@@ -25,6 +25,9 @@ def init_graph(problempath, bin_seg):
     vps = VPSelector(bin_seg, vpg)
     vps.save(os.path.join(problempath,'postopt.png'),img)
     dg = DiagramGraph(vps)
+    dg.assign_labels(bin_seg.label_seg_list)
+    for vx in dg.vx_list:
+        print vx.label
     return (bgr_img, dg)
 
 def init_seg(problempath):
@@ -45,9 +48,34 @@ def query(bgr_img, dg, query, imagepath):
     ge_list = []
     vx_list = []
     if query:
-        vx_comb_list, ge_comb_list = dg.query(query,True)
+        shape,ref = query.split(' ')
+        if shape == 'line':
+            recall = False
+            seq = 'l'
+        elif shape == 'triangle':
+            recall = True
+            seq = 'lll'
+        elif shape == 'angle':
+            recall = False
+            seq = 'll'
+        elif shape == 'arc':
+            recall = False
+            seq = 'a'
+        elif shape == 'pie':
+            recall = True
+            seq = 'lal'
+        vx_comb_list, ge_comb_list = dg.query(seq,recall)
         if len(vx_comb_list):
-            ge_list.extend(ge_comb_list[0])
-            vx_list.extend(vx_comb_list[0])
+            for idx0, vx_comb in enumerate(vx_comb_list):
+                cond = True
+                for idx1, vx in enumerate(vx_comb):
+                    if vx.label != ref[idx1]:
+                        cond = False
+                        break
+                if cond:
+                    ge_list.extend(ge_comb_list[idx0])
+                    vx_list.extend(vx_comb_list[idx0])
+                    break
+                        
     dg.draw(bgr_img,ge_list=ge_list,vx_list=vx_list)
     cv2.imwrite(imagepath, bgr_img)
