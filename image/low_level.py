@@ -56,7 +56,7 @@ class ImageSegment:
         self.slice_img = slice_img # To be used for noisy slice
         self.bin_img = bin_img # binary image; for hough transform
         self.nz_pts = np.transpose(np.nonzero(np.transpose(bin_img)>0))
-        self.label = ''
+        self.label = None
         self.center = np.array(loc) + np.array(self.size)/2.0
         self.area = self.size[0]*self.size[1]
         
@@ -79,6 +79,7 @@ class BinarizedSegmentation:
         self.bin_img = bin_img
         segment_list = []
         self.dgm_seg = None
+        self.label_seg_list = []
         
         if seg_alg == 'naive':
             kernel = np.ones((3,3), np.uint8)
@@ -104,6 +105,7 @@ class BinarizedSegmentation:
             segment_list[0] = self.dgm_seg
             self.label_seg_list = segment_list[1:]
             self.segment_list = segment_list
+            
     
     def save(self, folderpath, digit=2):
         filepath = next_name(folderpath, digit, 'png')

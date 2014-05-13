@@ -7,6 +7,7 @@ import numpy as np
 import cv2
 import csv
 import os
+from geosol_v1.external.path import next_name
 
 def label_resize(img, target_len=16):
     ylen, xlen = np.shape(img)
@@ -23,53 +24,13 @@ def label_resize(img, target_len=16):
     return target_img
 
 '''
-Given a list of label segments, train OCR
-This is to be used by LabelRecognizer
-For now, just saves the labels and user needs to
-manually modify the csv file
+cost function between features
 '''
-class LabelSaver:
-    def __init__(self, path='data/ocr/', digit=6, data_filename='data.csv', img_len=16):
-        self.path = path
-        self.digit = digit
-        self.data_fh = open(path+data_filename, 'ar')
-        self.img_len = img_len
-        
-        self.num = 1
+def cost_fn(feature0, feature1):
+    feature0 = np.array(feature0)
+    feature1 = np.array(feature1)
+    return np.linalg.norm(feature0-feature1)
     
-    def interactive_save(self, img):
-        name = self.next_name()
-        cv2.imwrite(self.path+name, img)
-        char = raw_input("Label for %s: " %name)
-        if char == "":
-            os.remove(self.path+name)
-        else:
-            self.data_fh.write("%s,%s," %(name,char))
-            flat_img = label_resize(img).flatten()
-            self.data_fh.write(",".join([str(int(e)) for e in flat_img])+'\n')
-        
-        
-    def save(self, img, char): 
-        # save segment to next_name
-        name = self.next_name()
-        cv2.imwrite(self.path+name, img)
-        self.csv_fh.write('%s,%s' %(name,char))
-    
-    def next_name(self):
-        name = ('{0:0%d}' %self.digit).format(self.num) + '.png'
-        while name in os.listdir(self.path):
-            self.num += 1
-            name = ('{0:0%d}' %self.digit).format(self.num) + '.png'
-        return name
-    
-    '''
-    label outstanding files via interactive mode
-    '''
-    def label_files(self):
-        pass
-    
-'''
-'''
 class LabelRecognizer:
     def __init__(self, path='data/ocr/', digit=6, data_filename='data.csv', img_len=16):
         self.path =path
@@ -79,16 +40,37 @@ class LabelRecognizer:
         self.img_len = img_len
         
         # initialize feature dictionary
-        data_fh = open(path+data_filename, 'r')
+        data_fh = open(os.path.join(path,data_filename), 'ar')
         reader = csv.reader(data_fh, delimiter=',')
-        for row in reader:
-            self.char_list.append(row[1])
-            self.feature_list.append([int(e) for e in row[2:]])
-            
-        
-    def recognize(self, img):
+        if reader.line_num > 0:
+            for row in reader:
+                self.char_list.append(row[1])
+                self.feature_list.append([int(e) for e in row[2:]])
+    
+    '''
+    save img to db and update feature list as well
+    '''
+    def save(self, img, char):
+        name = next_name(self.path, self.digit, extension='png')
+        cv2.imwrite(os.path.join(self.path,name), img)
+        new_img = label_resize(img, target_len=self.img_len)
+        flat_img = [int(e) for e in new_img.flatten()]
+        self.feature_list.append(flat_img)
+        imgid = ','.join([str(e) for e in flat_img])
+        string = "%s,%s,%s\n" %(name,char,imgid)
+        self.data_fh.write(string)
+    
+    '''
+    returns (matched_char,cost) pair
+    ''' 
+    def recognize(self, img, max_cost=100):
         new_img = label_resize(img, target_len=self.img_len) 
         flat_img = new_img.flatten()
-        cost_list = [np.linalg.norm(np.array(feature)-flat_img) for feature in self.feature_list]
+        cost_list = [cost_fn(flat_img,feature) for feature in self.feature_list]
         idx = np.argmin(cost_list)
-        return self.char_list[idx]
+        return (self.char_list[idx], cost_list[idx])
+    
+    def batch_save(self, imgs, chars):
+        for idx, img in enumerate(imgs):
+            char = chars[idx]
+            self.save(img,char)

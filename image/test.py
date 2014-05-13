@@ -3,7 +3,15 @@ Created on Apr 14, 2014
 
 @author: minjoon
 '''
+import cPickle
 import csv
+from geosol_v1.external.path import directory_iterator, find_file, next_name
+from geosol_v1.geometry.diagram_graph import DiagramGraph
+from geosol_v1.geometry.vp_selector import VPSelector
+from geosol_v1.image.low_level import open_img, BinarizedSegmentation
+from geosol_v1.image.ocr import LabelRecognizer
+from geosol_v1.image.visual_primitive import VPGenerator, VPRecorder, \
+    evaluate_solution
 from matplotlib import cm
 from matplotlib.mlab import normpdf
 import os
@@ -12,12 +20,6 @@ import sys
 
 import cv2
 
-from geosol_v1.external.path import directory_iterator, find_file, next_name
-from geosol_v1.geometry.vp_selector import VPSelector
-from geosol_v1.image.low_level import open_img, BinarizedSegmentation
-from geosol_v1.image.ocr import LabelSaver, LabelRecognizer
-from geosol_v1.image.visual_primitive import VPGenerator, VPRecorder, evaluate_solution
-from geosol_v1.geometry.diagram_graph import DiagramGraph
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy as np
@@ -212,6 +214,10 @@ def run_and_save(direc):
     vx_comb_list, ge_comb_list = dg.query('lal',True)
     dg.draw(bgr_img,ge_list=ge_comb_list[0],vx_list=vx_comb_list[0])
     cv2.imwrite(os.path.join(direc,'postdg.png'), bgr_img)
+    cPickle.dump(dg, open("save.p","wb"))
+    
+def hoho():
+    dg = cPickle.load(open("save.p","rb"))
     
 
 if __name__ == '__main__':
@@ -225,4 +231,5 @@ if __name__ == '__main__':
     #clear_segs(problem_path)
     #generate_segs(problem_path)
     # optimization(problem_path)
-    run_and_save(problem_path)
+    #run_and_save(problem_path)
+    hoho()

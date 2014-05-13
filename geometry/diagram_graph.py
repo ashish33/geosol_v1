@@ -38,16 +38,14 @@ class GEArc(GraphEdge):
         return out
         
 class Vertex:
-    def __init__(self, loc):
+    def __init__(self, loc, idx):
         self.loc = tuple(loc) # (x,y) tuple
         self.vx_dict = {} # vx : 'd': direct neighbor, 'i': indirect neighbor
+        self.idx = idx
         
     def add_vx(self, vx, key):
         self.vx_dict[vx] = key
             
-    def __hash__(self):
-        return hash(self.loc)
-    
     def __repr__(self):
         return "(%.1f,%.1f,)" %self.loc
         
@@ -89,7 +87,7 @@ class DiagramGraph:
             temp_vxpt_list.append(vparc.abs_arc_tuple[:2])
         
         # NMS on the vertices
-        [self.vx_list.append(Vertex(e)) for e in non_maximum_suppression(temp_vxpt_list,eps)]
+        [self.vx_list.append(Vertex(e,idx)) for idx,e in enumerate(non_maximum_suppression(temp_vxpt_list,eps))]
         
         # construct graph edges
         self.geline_list = []
@@ -116,7 +114,7 @@ class DiagramGraph:
                 geline = GELine(vpline, start, end)
                 self.geline_list.append(geline)
                 # Add the edge to the graph
-                self.line_graph[(vx_list[idx],vx_list[next_idx])] = geline
+                self.line_graph[(vx_list[idx].idx,vx_list[next_idx].idx)] = geline
                 # Add direct neighbor
                 vx_list[idx].add_vx(vx_list[next_idx],'d')
                 vx_list[next_idx].add_vx(vx_list[idx],'d')
@@ -149,7 +147,7 @@ class DiagramGraph:
                     start -= 2*np.pi
                 gearc = GEArc(vparc, start, end)
                 self.gearc_list.append(gearc)
-                key = (vx_list[idx],vx_list[next_idx])
+                key = (vx_list[idx].idx,vx_list[next_idx].idx)
                 # it is possible to have more than one arc between two points
                 if key in self.arc_graph:
                     self.arc_graph[key].append(gearc)
@@ -202,8 +200,8 @@ class DiagramGraph:
     
     def get_ge_list(self, vx0, vx1):
         ge_list = []
-        key0 = (vx0,vx1)
-        key1 = (vx1,vx0)
+        key0 = (vx0.idx,vx1.idx)
+        key1 = (vx1.idx,vx0.idx)
         if key0 in self.line_graph:
             ge_list.append(self.line_graph[key0])
         elif key1 in self.line_graph:

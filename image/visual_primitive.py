@@ -5,14 +5,14 @@ Created on Apr 14, 2014
 '''
 from abc import ABCMeta, abstractmethod
 import csv
+from geosol_v1.external.path import next_name
+from geosol_v1.geometry.util import sim_line, sim_circle, pt2pt_dist
+from geosol_v1.image.low_level import open_img
 from matplotlib import cm
 import os
 
 import cv2
 
-from geosol_v1.external.path import next_name
-from geosol_v1.geometry.util import sim_line, sim_circle
-from geosol_v1.image.low_level import open_img
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -210,13 +210,11 @@ class VPGenerator:
                 vp.assign_abs(loc)
                 
             # Assign labels to each segment
-            '''
             for vp in self.vpline_list:
                 for x,y in [vp.abs_line_tuple[:2],vp.abs_line_tuple[2:]]:
-                    dist_list = [distance(x,y,seg.center[0],seg.center[1]) for seg in bin_seg.label_seg_list]
+                    dist_list = [pt2pt_dist((x,y),seg.center) for seg in bin_seg.label_seg_list]
                     if len(dist_list) > 0:
                         vp.add_label(bin_seg.label_seg_list[np.argmin(dist_list)].label)
-            '''
                 
     def get_vp_list(self):
         temp_list = self.vpline_list[:]
