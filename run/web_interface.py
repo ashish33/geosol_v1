@@ -48,34 +48,41 @@ def query(bgr_img, dg, query, imagepath):
     ge_list = []
     vx_list = []
     if query:
-        shape,ref = query.split(' ')
-        if shape == 'line':
-            recall = False
-            seq = 'l'
-        elif shape == 'triangle':
-            recall = True
-            seq = 'lll'
-        elif shape == 'angle':
-            recall = False
-            seq = 'll'
-        elif shape == 'arc':
-            recall = False
-            seq = 'a'
-        elif shape == 'pie':
-            recall = True
-            seq = 'lal'
-        vx_comb_list, ge_comb_list = dg.query(seq,recall)
-        if len(vx_comb_list):
-            for idx0, vx_comb in enumerate(vx_comb_list):
-                cond = True
-                for idx1, vx in enumerate(vx_comb):
-                    if vx.label != ref[idx1]:
-                        cond = False
-                        break
-                if cond:
-                    ge_list.extend(ge_comb_list[idx0])
-                    vx_list.extend(vx_comb_list[idx0])
-                    break
+        
+        input_array = query.split(' ')
+        if len(input_array) == 1:
+            if input_array[0] == 'vx':
+                vx_list = dg.vx_list
+        else:
+            shape, ref = input_array
+            if shape in ['circle', 'line']:
+                vx_list, ge = dg.simple_query(shape, ref)
+                ge_list.append(ge)
+            elif shape == 'arc':
+                vx_list, ge_list = dg.simple_query(shape,ref)
+                ge_list.extend(ge_list)
+            else:
+                if shape == 'triangle':
+                    recall = True
+                    seq = 'lll'
+                elif shape == 'angle':
+                    recall = False
+                    seq = 'll'
+                elif shape == 'pie':
+                    recall = True
+                    seq = 'lal'
+                vx_comb_list, ge_comb_list = dg.query(seq,recall)
+                if len(vx_comb_list):
+                    for idx0, vx_comb in enumerate(vx_comb_list):
+                        cond = True
+                        for idx1, vx in enumerate(vx_comb):
+                            if vx.label != ref[idx1]:
+                                cond = False
+                                break
+                        if cond:
+                            ge_list.extend(ge_comb_list[idx0])
+                            vx_list.extend(vx_comb_list[idx0])
+                            break
                         
     dg.draw(bgr_img,ge_list=ge_list,vx_list=vx_list)
     cv2.imwrite(imagepath, bgr_img)

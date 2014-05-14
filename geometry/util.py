@@ -26,39 +26,30 @@ def line2line_ix(line0, line1, eps=1):
     return r
 
 def line2arc_ix(line, arc, eps=1):
-    x0,y0,r,t0,t1 = arc
-    x1,y1,x2,y2 = line
-    x1 -= x0
-    x2 -= x0
-    y1 -= y0
-    x2 -= y0
-    
-    dx = x2-x1
-    dy = y2-y1
-    dr = np.sqrt(dx**2+dy**2)
-    D = x1*y2 - x2*y1
-    disc = (r*dr)**2-D**2
     temp_sln = []
-    if disc < 0:
-        return temp_sln
-    else:
-        sgn_dy = 1
-        if dy < 0:
-            sgn_dy = -1
-        sx0 = (D*dy+sgn_dy*dx*np.sqrt(disc))/dr**2
-        sy0 = (-D*dx+np.abs(dy)*np.sqrt(disc))/dr**2
-        temp_sln.append((sx0+x0,sy0+y0))
-        if disc > 0:
-            sx0 = (D*dy-sgn_dy*dx*np.sqrt(disc))/dr**2
-            sy0 = (-D*dx-np.abs(dy)*np.sqrt(disc))/dr**2
-            temp_sln.append((sx0+x0,sy0+y0))
-        
-        # check if sln is on actual line
-        sln = []
-        for pt in temp_sln:
-            if line2pt_dist(line,pt) < eps:
-                sln.append(pt)
-        return sln
+    mid = line_mid(line)
+    center = np.array(arc[:2])
+    r = arc[2]
+    normal = line_normal(line)
+    d = np.dot(mid-center,normal)
+    perp_vector = d*normal
+    # tangency
+    D = r**2-d**2
+    # error tolerant step
+    if D < 0:
+        D = (r+eps)**2-d**2
+    if D >= 0:
+        par_vector = np.sqrt(D)*line_vector(line)
+        temp_sln.append(center + perp_vector + par_vector)
+        temp_sln.append(center + perp_vector - par_vector)
+    
+    # check if the point is on the line
+    sln = []
+    for pt in temp_sln:
+        if line2pt_dist(line,pt) < eps:
+            sln.append(pt)
+            
+    return sln
             
         
 
@@ -210,9 +201,9 @@ def test_line2line_ix():
     
 def test_line2arc_ix():
     line0 = (-5,-5,5,5)
-    arc = (0,0,3,0,0)
+    arc = (1,1,3,0,0)
     print line2arc_ix(line0,arc)
-    print 3/np.sqrt(2)
+    print 1+np.sqrt(4.5)
     
 def test_pt2pt_angle():
     print pt2pt_angle([0,0],[1,1])

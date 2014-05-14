@@ -18,7 +18,6 @@ class GraphEdge:
     def __repr__(self):
         pass
     
-    
 class GELine(GraphEdge):
     def __init__(self, vp_line, start=0, end=1):
         self.parent = vp_line
@@ -40,12 +39,12 @@ class GEArc(GraphEdge):
 class Vertex:
     def __init__(self, loc, idx):
         self.loc = tuple(loc) # (x,y) tuple
-        self.vx_dict = {} # vx : 1 = direct neighbor, 2+ = indirect neighbor
+        self.nbr = {} # vx : 1 = direct neighbor, 2+ = indirect neighbor
         self.idx = idx
         self.label = None
         
-    def add_vx(self, vx, key):
-        self.vx_dict[vx] = key
+    def add_nbr(self, vx, key):
+        self.nbr[vx.idx] = key
         
     def assign_label(self, label):
         self.label = label
@@ -62,6 +61,7 @@ class DiagramGraph:
         # these are for reference
         self.vpline_list = vps.vpline_list
         self.vparc_list = vps.vparc_list
+        self.label_dict = {} # label -> vx
         
         # construct vertices via intersection
         temp_vxpt_list = []
@@ -109,54 +109,59 @@ class DiagramGraph:
             # normalized parallel distance
             norm_pardist_list = [0.5+parallel_dist(line,vx.loc)/linelen for vx in vx_list]
             idx_list = np.argsort(norm_pardist_list)
-             
-            # for each consecutive pair, create edges
-            for i, idx in enumerate(idx_list[:-1]):
-                next_idx = idx_list[i+1]
-                start = norm_pardist_list[idx]
-                end = norm_pardist_list[next_idx]
-                geline = GELine(vpline, start, end)
-                self.geline_list.append(geline)
-                # Add the edge to the graph
-                self.line_graph[(vx_list[idx].idx,vx_list[next_idx].idx)] = geline
-                
-            # Add neighbors
-            for idx0, vx0 in enumerate(vx_list):
-                for idx1, vx1 in enumerate(vx_list[idx0+1:]):
-                    vx0.add_vx(vx1, np.abs(idx0-idx1))
-                    vx1.add_vx(vx0, np.abs(idx0-idx1))
+            
+            for i, vx_idx0 in enumerate(idx_list[:-1]):
+                start = norm_pardist_list[vx_idx0]
+                for j, vx_idx1 in enumerate(idx_list[i+1:]):
+                    end = norm_pardist_list[vx_idx1]
+                    geline = GELine(vpline, start, end)
+                    self.geline_list.append(geline)
+                    key = [vx_list[vx_idx0].idx,vx_list[vx_idx1].idx]
+                    key.sort()
+                    key = tuple(key)
+                    self.line_graph[key] = geline
+                    vx_list[vx_idx0].add_nbr(vx_list[vx_idx1], np.abs(i-j))
+                    vx_list[vx_idx1].add_nbr(vx_list[vx_idx0], np.abs(i-j))
             
         # construct GEArc
         for vparc in self.vparc_list:
             arc = vparc.abs_arc_tuple
             # obtain all relevant vertices
             vx_list = [vx for vx in self.vx_list if arc2pt_dist(arc, vx.loc) < eps]
-            angle_list = [pt2pt_angle(arc[:2],vx.loc) for vx in vx_list]
-            idx_list = np.argsort(angle_list)
-            
-            for i, idx in enumerate(idx_list):
-                # for now, assume only circle. Later implement Arc
-                if i == len(idx_list)-1:
-                    next_idx = idx_list[0]
-                else:
-                    next_idx = idx_list[i+1]
-                start = angle_list[idx]
-                end = angle_list[next_idx]
-                if start > end:
-                    start -= 2*np.pi
-                gearc = GEArc(vparc, start, end)
+            if len(vx_list) > 0:
+                angle_list = [pt2pt_angle(arc[:2],vx.loc) for vx in vx_list]
+                idx_list = np.argsort(angle_list)
+                
+                for i, vx_idx0 in enumerate(idx_list[:-1]):
+                    start = angle_list[vx_idx0]
+                    for j, vx_idx1 in enumerate(idx_list[i+1:]):
+                        end = angle_list[vx_idx1]
+                        if start > end:
+                            start -= 2*np.pi
+                        gearc = GEArc(vparc, start, end)
+                        self.gearc_list.append(gearc)
+                        key = [vx_list[vx_idx0].idx,vx_list[vx_idx1].idx]
+                        key.sort()
+                        key = tuple(key)
+                        if key in self.arc_graph:
+                            self.arc_graph[key].append(gearc)
+                        else:
+                            self.arc_graph[key] = [gearc]
+                        vx_list[vx_idx0].add_nbr(vx_list[vx_idx1], np.abs(i-j))
+                        vx_list[vx_idx1].add_nbr(vx_list[vx_idx0], np.abs(i-j))
+                        
+            # also add the circle itself
+            dist_list = [pt2pt_dist(arc[:2],vx.loc) for vx in self.vx_list]
+            min_idx = np.argmin(dist_list)
+            if dist_list[min_idx] < eps:
+                gearc = GEArc(vparc, 0, 0)
                 self.gearc_list.append(gearc)
-                key = (vx_list[idx].idx,vx_list[next_idx].idx)
-                # it is possible to have more than one arc between two points
+                key = self.vx_list[min_idx].idx
                 if key in self.arc_graph:
                     self.arc_graph[key].append(gearc)
                 else:
                     self.arc_graph[key] = [gearc]
                 
-            for idx0, vx0 in enumerate(vx_list):
-                for idx1, vx1 in enumerate(vx_list[idx0+1:]):
-                    vx0.add_vx(vx1, np.abs(idx0-idx1))
-                    vx1.add_vx(vx0, np.abs(idx0-idx1))
     
     '''
     seq="lll", recall=True will represent a triangle
@@ -171,7 +176,7 @@ class DiagramGraph:
         def helper(vx_list, ge_list):
             # base case
             if recall and len(vx_list) == len(seq):
-                ge = ge_list_has(self.get_ge_list(vx_list[0], vx_list[-1]), seq[-1])
+                ge = self.get_ge(vx_list[0], vx_list[-1], seq[-1])
                 if ge:
                     comb_list.append(vx_list)
                     ge_list.append(ge)
@@ -181,9 +186,11 @@ class DiagramGraph:
                 ge_comb_list.append(ge_list)
             else:
                 idx = len(vx_list) - 1
-                for vx in vx_list[idx].vx_dict:
+                last_vx = vx_list[idx]
+                for vx_idx in last_vx.nbr:
+                    vx = self.vx_list[vx_idx]
                     if vx not in vx_list or revisit:
-                        ge = ge_list_has(self.get_ge_list(vx_list[idx],vx),seq[idx])
+                        ge = self.get_ge(vx_list[idx],vx,seq[idx])
                         if ge:
                             new_vx_list = vx_list[:]
                             new_vx_list.append(vx)
@@ -194,22 +201,52 @@ class DiagramGraph:
             helper([vx],[])
         return (comb_list, ge_comb_list)
     
-    def get_ge_list(self, vx0, vx1):
-        ge_list = []
-        key0 = (vx0.idx,vx1.idx)
-        key1 = (vx1.idx,vx0.idx)
-        if key0 in self.line_graph:
-            ge_list.append(self.line_graph[key0])
-        elif key1 in self.line_graph:
-            ge_list.append(self.line_graph[key1])
-        
-        if key0 in self.arc_graph:
-            ge_list.extend(self.arc_graph[key0])
-        elif key1 in self.arc_graph:
-            ge_list.extend(self.arc_graph[key1])
+    def simple_query(self, shape, ref):
+        if shape == 'circle':
+            if ref in self.label_dict:
+                vx = self.label_dict[ref]
+            else:
+                print "cannot find label %s" %ref
+                return None
+            return ([vx],self.arc_graph[vx.idx][0])
+        else:
+            if ref[0] in self.label_dict and ref[1] in self.label_dict:
+                vx0 = self.label_dict[ref[0]]
+                vx1 = self.label_dict[ref[1]]
+            else:
+                print "cannot find labels %s" %ref
+                return None
+            key = [vx0.idx,vx1.idx]
+            key.sort()
+            key = tuple(key)
+            if shape == 'arc':
+                if key in self.arc_graph:
+                    return ([vx0,vx1], self.arc_graph[key])
+            elif shape == 'line':
+                if key in self.line_graph:
+                    return ([vx0,vx1], self.line_graph[key])
+            print "cannot find corresponding shape"
+            return None
             
-        return ge_list
+        
     
+    def get_ge(self, vx0, vx1, shape, vp=None):
+        if shape == 'l':
+            graph = self.line_graph
+        elif shape == 'a':
+            graph = self.arc_graph
+            
+        key = (vx0.idx,vx1.idx)
+        if key not in graph:
+            key = (vx1.idx,vx0.idx)
+            if key not in graph:
+                return None
+
+        if shape == 'a':
+            return graph[key][0]
+        return graph[key]
+
+        
             
     '''
     Draw lines, arcs, and vertices on img (destructive)
@@ -244,18 +281,15 @@ class DiagramGraph:
             arc_tuple = np.append(vx.loc, [vertex_radius,0,0])
             draw_arc(bgr_img, arc_tuple, vertex_color, vertex_width)
             
-    def assign_labels(self, segments):
+    def assign_labels(self, segments, max_dist=20):
         for vertex in self.vx_list:
             dist_list = [pt2pt_dist(vertex.loc,segment.center) for segment in segments]
-            idx = np.argmin(dist_list)
-            vertex.assign_label(segments[idx].label)
-
-def ge_list_has(ge_list, string):
-    for ge in ge_list:
-        if (isinstance(ge,GELine) and string=='l') or \
-        (isinstance(ge,GEArc) and string=='a'):
-            return ge
-    return None
+            idx_list = np.argsort(dist_list)
+            for idx in idx_list:
+                if segments[idx].label != "" and dist_list[idx] < max_dist:
+                    vertex.assign_label(segments[idx].label)
+                    self.label_dict[segments[idx].label] = vertex
+                    break
 
     
             
