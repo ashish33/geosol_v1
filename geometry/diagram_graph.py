@@ -209,10 +209,17 @@ class DiagramGraph:
                 print "cannot find label %s" %ref
                 return None
             return ([vx],self.arc_graph[vx.idx][0])
+        elif shape == 'point':
+            if ref in self.label_dict:
+                vx = self.label_dict[ref]
+            else:
+                print "cannot find label %s" %ref
+                return None
+            return ([vx],[])
         else:
-            if ref[0] in self.label_dict and ref[1] in self.label_dict:
+            if ref[0] in self.label_dict and ref[-1] in self.label_dict:
                 vx0 = self.label_dict[ref[0]]
-                vx1 = self.label_dict[ref[1]]
+                vx1 = self.label_dict[ref[-1]]
             else:
                 print "cannot find labels %s" %ref
                 return None

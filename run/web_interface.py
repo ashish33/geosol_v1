@@ -8,6 +8,7 @@ from geosol_v1.geometry.diagram_graph import DiagramGraph
 from geosol_v1.geometry.vp_selector import VPSelector
 from geosol_v1.image.low_level import open_img, BinarizedSegmentation
 from geosol_v1.image.visual_primitive import VPGenerator
+from geosol_v1.nlp.temp import Word
 import os
 
 import cv2
@@ -51,38 +52,47 @@ def query(bgr_img, dg, query, imagepath):
         
         input_array = query.split(' ')
         if len(input_array) == 1:
-            if input_array[0] == 'vx':
-                vx_list = dg.vx_list
+            ref = query
+            if len(ref) == 1:
+                shape = 'point'
+            else:
+                shape = 'line'
         else:
             shape, ref = input_array
-            if shape in ['circle', 'line']:
-                vx_list, ge = dg.simple_query(shape, ref)
-                ge_list.append(ge)
-            elif shape == 'arc':
-                vx_list, ge_list = dg.simple_query(shape,ref)
-                ge_list.extend(ge_list)
-            else:
-                if shape == 'triangle':
-                    recall = True
-                    seq = 'lll'
-                elif shape == 'angle':
-                    recall = False
-                    seq = 'll'
-                elif shape == 'pie':
-                    recall = True
-                    seq = 'lal'
-                vx_comb_list, ge_comb_list = dg.query(seq,recall)
-                if len(vx_comb_list):
-                    for idx0, vx_comb in enumerate(vx_comb_list):
-                        cond = True
-                        for idx1, vx in enumerate(vx_comb):
-                            if vx.label != ref[idx1]:
-                                cond = False
-                                break
-                        if cond:
-                            ge_list.extend(ge_comb_list[idx0])
-                            vx_list.extend(vx_comb_list[idx0])
+            shape = shape.lower()
+
+        if shape in 'circle':
+            vx_list, ge = dg.simple_query(shape, ref)
+            ge_list.append(ge)
+        elif shape in ['line','chord','tangent','secant','diameter']:
+            vx_list, ge = dg.simple_query('line', ref)
+            ge_list.append(ge)
+        elif shape == 'arc':
+            vx_list, ge_list = dg.simple_query(shape,ref)
+        elif shape == 'point':
+            vx_list, ge_list = dg.simple_query(shape,ref)
+        else:
+            if shape == 'triangle':
+                recall = True
+                seq = 'lll'
+            elif shape == 'angle':
+                recall = False
+                seq = 'll'
+            elif shape == 'pie':
+                recall = True
+                seq = 'lal'
+            vx_comb_list, ge_comb_list = dg.query(seq,recall)
+            if len(vx_comb_list):
+                for idx0, vx_comb in enumerate(vx_comb_list):
+                    cond = True
+                    for idx1, vx in enumerate(vx_comb):
+                        if vx.label != ref[idx1]:
+                            cond = False
                             break
+                    if cond:
+                        ge_list.extend(ge_comb_list[idx0])
+                        vx_list.extend(vx_comb_list[idx0])
+                        break
                         
     dg.draw(bgr_img,ge_list=ge_list,vx_list=vx_list)
     cv2.imwrite(imagepath, bgr_img)
