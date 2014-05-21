@@ -22,7 +22,7 @@ def init_graph(problempath, bin_seg):
 
     bin_seg.save(problempath)
     vpg = VPGenerator(bin_seg)
-    vpg.save(os.path.join(problempath,'preopt.png'),img)
+    vpg.save(os.path.join(problempath,'preopt.png'),img, ratio=1.5)
     vps = VPSelector(bin_seg, vpg)
     vps.save(os.path.join(problempath,'postopt.png'),img)
     dg = DiagramGraph(vps)
@@ -43,12 +43,51 @@ def ocr_save(img, filepath):
     cv2.imwrite(filepath, img)
     
 
+def list_ve(dg):
+    string = ""
+    # enumerate lines
+    vc_list, ec_list = dg.query('l',False)
+    for combo in vc_list:
+        string += "line %s%s," %(combo[0].label,combo[1].label)
+    
+    # enumerate arcs
+    vc_list, ec_list = dg.query('a',False)
+    for combo in vc_list:
+        string += "arc %s%s," %(combo[0].label,combo[1].label)
+       
+    # circle 
+    for vx in dg.vx_list:
+        if vx.idx in dg.arc_graph:
+            string += "circle %s," %vx.label
+            
+    # triangle
+    vc_list, ec_list = dg.query('lll',True)
+    for combo in vc_list:
+        string += "triangle %s%s%s," %(combo[0].label,combo[1].label,combo[2].label)
+
+            
+    # angle
+    vc_list, ec_list = dg.query('ll',False)
+    for combo in vc_list:
+        string += "angle %s%s%s," %(combo[0].label,combo[1].label,combo[2].label)
+    
+    # points
+    for vx in dg.vx_list:
+        string += "point %s," %vx.label
+    
+    return string
+
 # saves queried image to imagepath
-def query(bgr_img, dg, query, imagepath):
-    bgr_img = bgr_img.copy()
+def query(bgr_img, dg, query, imagepath, ratio=1.5):
+    bgr_img = cv2.resize(bgr_img, (0,0), fx=ratio, fy=ratio)
     ge_list = []
     vx_list = []
     if query:
+        
+        if query == "all":
+            dg.draw(bgr_img,ratio=ratio)
+            cv2.imwrite(imagepath, bgr_img)
+            return
         
         input_array = query.split(' ')
         if len(input_array) == 1:
@@ -61,7 +100,7 @@ def query(bgr_img, dg, query, imagepath):
             shape, ref = input_array
             shape = shape.lower()
 
-        if shape in 'circle':
+        if shape == 'circle':
             vx_list, ge = dg.simple_query(shape, ref)
             ge_list.append(ge)
         elif shape in ['line','chord','tangent','secant','diameter']:
@@ -81,7 +120,7 @@ def query(bgr_img, dg, query, imagepath):
             elif shape == 'pie':
                 recall = True
                 seq = 'lal'
-            vx_comb_list, ge_comb_list = dg.query(seq,recall)
+            vx_comb_list, ge_comb_list = dg.query(seq,recall,all=True)
             if len(vx_comb_list):
                 for idx0, vx_comb in enumerate(vx_comb_list):
                     cond = True
@@ -94,5 +133,5 @@ def query(bgr_img, dg, query, imagepath):
                         vx_list.extend(vx_comb_list[idx0])
                         break
                         
-    dg.draw(bgr_img,ge_list=ge_list,vx_list=vx_list)
+    dg.draw(bgr_img,ge_list=ge_list,vx_list=vx_list,ratio=ratio)
     cv2.imwrite(imagepath, bgr_img)

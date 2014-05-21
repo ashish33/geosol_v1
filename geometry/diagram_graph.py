@@ -170,20 +170,33 @@ class DiagramGraph:
     seq="c" returns all circle
     revisit=True will allow visiting already visited vertices
     '''
-    def query(self, seq, recall, revisit=False):
+    def query(self, seq, recall, revisit=False,all=False):
         comb_list = []
         ge_comb_list = []
+        def exists(vxl, arr):
+            if recall:
+                for comb in arr:
+                    if set(comb) == set(vxl):
+                        return True
+            else:
+                for comb in arr:
+                    if vxl == comb or reversed(vxl) == comb:
+                        return True
+            return False
+        
         def helper(vx_list, ge_list):
             # base case
             if recall and len(vx_list) == len(seq):
                 ge = self.get_ge(vx_list[0], vx_list[-1], seq[-1])
-                if ge:
-                    comb_list.append(vx_list)
+                if ge and (ge.parent not in [e.parent for e in ge_list]):
                     ge_list.append(ge)
-                    ge_comb_list.append(ge_list)
+                    if all or not exists(ge_list, ge_comb_list):
+                        comb_list.append(vx_list)
+                        ge_comb_list.append(ge_list)
             elif not recall and len(vx_list) > len(seq):
-                comb_list.append(vx_list)
-                ge_comb_list.append(ge_list)
+                if all or not exists(ge_list, ge_comb_list):
+                    comb_list.append(vx_list)
+                    ge_comb_list.append(ge_list)
             else:
                 idx = len(vx_list) - 1
                 last_vx = vx_list[idx]
@@ -191,7 +204,7 @@ class DiagramGraph:
                     vx = self.vx_list[vx_idx]
                     if vx not in vx_list or revisit:
                         ge = self.get_ge(vx_list[idx],vx,seq[idx])
-                        if ge:
+                        if ge and (ge.parent not in [e.parent for e in ge_list]):
                             new_vx_list = vx_list[:]
                             new_vx_list.append(vx)
                             new_ge_list = ge_list[:]
@@ -258,7 +271,7 @@ class DiagramGraph:
     '''
     Draw lines, arcs, and vertices on img (destructive)
     '''
-    def draw(self, bgr_img, ge_list=None, vx_list=None):
+    def draw(self, bgr_img, ge_list=None, vx_list=None, ratio=1.0):
         edge_color = (255,0,0)
         edge_width = 2
         vertex_color = (0,0,255)
@@ -278,14 +291,17 @@ class DiagramGraph:
         for ge in ge_list:
             if isinstance(ge,GELine):
                 print "drawing %s" %ge
-                draw_line(bgr_img, ge.abs_line_tuple, edge_color, edge_width)
+                line = tuple(ratio*np.array(ge.abs_line_tuple))
+                draw_line(bgr_img, line, edge_color, edge_width)
             elif isinstance(ge,GEArc):
                 print "drawing %s" %ge
-                draw_arc(bgr_img, ge.abs_arc_tuple, edge_color, edge_width)
+                arc = ratio*np.array(ge.abs_arc_tuple[:3])
+                arc = np.append(arc,ge.abs_arc_tuple[3:])
+                draw_arc(bgr_img, arc, edge_color, edge_width)
         
         # draw vertices
         for vx in vx_list:
-            arc_tuple = np.append(vx.loc, [vertex_radius,0,0])
+            arc_tuple = np.append(ratio*np.array(vx.loc), [ratio*vertex_radius,0,0])
             draw_arc(bgr_img, arc_tuple, vertex_color, vertex_width)
             
     def assign_labels(self, segments, max_dist=20):

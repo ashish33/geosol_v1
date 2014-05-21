@@ -204,6 +204,10 @@ def run_and_save(direc):
     img = cv2.cvtColor(bgr_img, cv2.cv.CV_BGR2GRAY)
 
     bin_seg = BinarizedSegmentation(img)
+    ocrpath = "/Users/minjoon/Documents/data/geosol/ocr/"
+    lr = LabelRecognizer(path=ocrpath)
+    for seg in bin_seg.label_seg_list:
+        print lr.save(seg.img, 'A')
     #bin_seg.save(direc)
     vpg = VPGenerator(bin_seg)
     #vpg.save(os.path.join(direc,'preopt.png'),img)

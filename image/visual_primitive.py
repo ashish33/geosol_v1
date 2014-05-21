@@ -222,7 +222,7 @@ class VPGenerator:
         return temp_list
     
     # save absolute values of primitives
-    def save(self, filepath, img=None):
+    def save(self, filepath, img=None, ratio=1.0):
         fh = open(filepath, 'w')
         for vp in self.get_vp_list():
             fh.write(repr(vp)+'\n')
@@ -241,21 +241,22 @@ class VPGenerator:
             info_fh.close()
             
         if img != None:
-            result_img = display_vp(img, self)
+            result_img = display_vp(img, self, ratio=ratio)
             img_path = os.path.join(dir_path, name.split('.')[0]+'.png')
             cv2.imwrite(img_path, result_img)
         
         print 'Successfully saved visual primitives to %s' %filepath
         
-def display_vp(img, vpg):
-    out_img = cv2.cvtColor(img,cv2.cv.CV_GRAY2BGR)
+def display_vp(img, vpg, ratio=1.0):
+    out_img = cv2.resize(cv2.cvtColor(img,cv2.cv.CV_GRAY2BGR),(0,0),fx=ratio,fy=ratio)
+    
     
     for vp in vpg.vpline_list:
-        x0,y0,x1,y1 = [int(np.around(float(elem))) for elem in vp.abs_line_tuple]
-        cv2.line(out_img,(x0,y0),(x1,y1),(255,0,0),2)
+        x0,y0,x1,y1 = [int(np.around(ratio*float(elem))) for elem in vp.abs_line_tuple]
+        cv2.line(out_img,(x0,y0),(x1,y1),(255,0,0),1)
     for vp in vpg.vparc_list:
-        x,y,r,t0,t1 = [int(np.around(float(elem))) for elem in vp.abs_arc_tuple]
-        cv2.circle(out_img,(int(x),int(y)),int(r),(0,255,0),2)
+        x,y,r,t0,t1 = [int(np.around(ratio*float(elem))) for elem in vp.abs_arc_tuple]
+        cv2.circle(out_img,(int(x),int(y)),int(r),(0,255,0),1)
     return out_img
 
 
