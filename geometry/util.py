@@ -50,6 +50,13 @@ def line2arc_ix(line, arc, eps=1):
             sln.append(pt)
             
     return sln
+
+def line2line_angle(line0, line1):
+    v0 = line_vector(line0)
+    v1 = -line_vector(line1)
+    val = np.dot(v0,v1)
+    angle = np.arccos(val)
+    return angle
             
         
 
@@ -208,9 +215,16 @@ def test_line2arc_ix():
 def test_pt2pt_angle():
     print pt2pt_angle([0,0],[1,1])
     print np.pi/4
+    
+def test_line2line_angle():
+    line0 = (0,0,1,1)
+    line1 = (0,0,0,1)
+    print 180*line2line_angle(line0, line1)/(np.pi)
+    print np.pi/4
             
 if __name__ == "__main__":
-    test_line2arc_ix()
+    #test_line2arc_ix()
+    test_line2line_angle()
     
     
     

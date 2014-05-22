@@ -8,12 +8,12 @@ import csv
 from geosol_v1.external.path import next_name
 from geosol_v1.geometry.util import sim_line, sim_circle, pt2pt_dist
 from geosol_v1.image.low_level import open_img
-from matplotlib import cm
+#from matplotlib import cm
 import os
 
 import cv2
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 
 
