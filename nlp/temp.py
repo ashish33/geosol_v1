@@ -53,7 +53,7 @@ def is_keyword(words):
 
 def split_sentence(sentence):
     
-    return [word for word in re.split('(\W)', sentence) if word not in [" ", ""]]
+    return [word for word in re.split('([.,; ])', sentence) if word not in [" ", ""]]
 
 def generate_word_list(sentence):
     str_list = split_sentence(sentence)
